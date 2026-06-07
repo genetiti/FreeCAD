@@ -92,17 +92,41 @@ Explicitly excluded. Documented to prevent scope creep. (See `.planning/research
 
 ## Traceability
 
-Populated during roadmap creation. Each v1 requirement maps to exactly one phase.
+Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for phase detail.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (to be filled by roadmapper) | — | Pending |
+| SHELL-01 | Phase 1 | Pending |
+| SHELL-02 | Phase 1 | Pending |
+| NAV-01 | Phase 1 | Pending |
+| RIBBON-01 | Phase 2 | Pending |
+| RIBBON-02 | Phase 2 | Pending |
+| TREE-01 | Phase 3 | Pending |
+| TREE-02 | Phase 3 | Pending |
+| TREE-04 | Phase 3 | Pending |
+| PROP-01 | Phase 4 | Pending |
+| PROP-02 | Phase 4 | Pending |
+| TREE-03 | Phase 4 | Pending |
+| FLOW-01 | Phase 4 | Pending |
+| NAV-02 | Phase 5 | Pending |
+| NAV-03 | Phase 5 | Pending |
+| NAV-04 | Phase 5 | Pending |
+| CANVAS-01 | Phase 5 | Pending |
+| CANVAS-02 | Phase 5 | Pending |
+| CANVAS-03 | Phase 5 | Pending |
+| CANVAS-04 | Phase 5 | Pending |
+| CANVAS-05 | Phase 5 | Pending |
+| CANVAS-08 | Phase 5 | Pending |
+| CANVAS-06 | Phase 6 | Pending |
+| CANVAS-07 | Phase 6 | Pending |
+| THEME-01 | Phase 7 | Pending |
+| PANE-01 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 23 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 23 ⚠️
+- v1 requirements: 25 total (enumerated count — the "23" cited during init was a miscount; the v1 checkbox set is SHELL×2, RIBBON×2, TREE×4, PROP×2, NAV×4, FLOW×1, CANVAS×8, PANE×1, THEME×1 = 25)
+- Mapped to phases: 25 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-06*
-*Last updated: 2026-06-06 after initial definition*
+*Last updated: 2026-06-06 after roadmap creation (traceability populated)*
