@@ -24,7 +24,6 @@
 # ***************************************************************************
 """Registration of the FreeWorks mode workbench in FreeCAD's selector."""
 
-import FreeCAD as App
 import FreeCADGui as Gui
 
 
@@ -38,7 +37,7 @@ class FreeWorksWorkbench(Gui.Workbench):
 
     def __init__(self):
         # The workbench icon is recreated-original art bundled in the FreeWorks
-        # Qt resource (its provenance ledger row is added in Plan 04).
+        # Qt resource; its provenance ledger row is recorded in ASSET_PROVENANCE.md.
         self.__class__.Icon = ":/FreeWorks/icons/FreeWorksWorkbench.svg"
         self.__class__.MenuText = "FreeWorks"
         self.__class__.ToolTip = "FreeWorks mode"

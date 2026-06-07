@@ -2,9 +2,9 @@
 <!--
   FreeWorks workbench resource bundle.
 
-  The referenced icon is recreated-original art. The icon binary itself and its
-  ASSET_PROVENANCE.md ledger row are produced in Plan 04; this manifest reserves
-  the resource path. No copied proprietary third-party asset is embedded here.
+  The referenced icon is recreated-original art. The icon binary
+  (icons/FreeWorksWorkbench.svg) exists in this directory and is recorded in
+  ASSET_PROVENANCE.md. No copied proprietary third-party asset is embedded here.
 -->
 <RCC>
     <qresource prefix="/FreeWorks/icons">
