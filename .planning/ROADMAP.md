@@ -57,7 +57,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The active ribbon tab switches by context — entering a sketch activates the Sketch tab — wired to `Control` active-dialog / edit state
   5. Ribbon tab layout persists across restarts (panel positions and tab state restore correctly), built as a self-contained widget that survives an upstream sync without merge conflict
 
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 02-01-PLAN.md — Wave 0 test scaffold + native ribbon spike gate (native-vs-SARibbon verdict) (RIBBON-01)
+- [ ] 02-02-PLAN.md — Curated declarative map + full FwRibbon build (tabs, large labeled buttons, flyouts, auto-derive) (RIBBON-01)
+- [ ] 02-03-PLAN.md — Mount in top area, reversible chrome hiding, discoverability escape hatch, layout persistence (RIBBON-01)
+- [ ] 02-04-PLAN.md — Context tab switching: sketch-edit activates the Sketch tab, restores on exit (RIBBON-02)
+
 **UI hint**: yes
 
 ### Phase 3: FeatureManager Design Tree
@@ -152,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. SolidWorks Mode Foundation | 4/4 | Complete   | 2026-06-07 |
-| 2. CommandManager Ribbon | 0/TBD | Not started | - |
+| 2. CommandManager Ribbon | 0/4 | Planned | - |
 | 3. FeatureManager Design Tree | 0/TBD | Not started | - |
 | 4. PropertyManager Panel | 0/TBD | Not started | - |
 | 5. Selection Parity & On-Canvas Accelerators | 0/TBD | Not started | - |
