@@ -60,9 +60,15 @@ Component metric tokens (the values the ribbon contract actually pins):
 | Flyout split-button arrow zone | 16px wide | The dropdown-arrow hit region of a split button (distinct from the primary-action zone) |
 | Touch/pointer target min | 24px | Minimum hit target for any clickable ribbon element |
 
-Exceptions: large-button icon (32px) and the 56×72 / 88–96 ribbon-body metrics are
-**SW-fidelity exceptions** to the 4-multiple spacing scale — they are sizing constants
-chosen to make the ribbon read as a SolidWorks CommandManager rather than a thick toolbar.
+Exceptions: large-button icon (32px), the 56×72 / 88–96 ribbon-body metrics, and the 1px
+panel group separator are **SW-fidelity exceptions** to the 4-multiple spacing scale — they
+are sizing constants chosen to make the ribbon read as a SolidWorks CommandManager rather
+than a thick toolbar. Specifically:
+- 32px large-button icon, 56×72 large-button footprint, 88–96 ribbon-body height —
+  SW-fidelity sizing so the ribbon reads bigger than a stock FreeCAD toolbar.
+- 1px panel group separator — SW-fidelity exception; hairline divider matching SolidWorks
+  panel chrome convention (not a layout spacing token).
+
 All are theme-overridable in Phase 7.
 
 ---
@@ -83,6 +89,9 @@ Notes:
 - Button labels MUST wrap to a second line (e.g. "Extruded\nBoss/Base"), never truncate with
   an ellipsis — SW command names are long and recognizability depends on the full label.
 - Exactly 2 weights are in play: Regular (400) and Semibold (600, active-tab only).
+- Button-label line height is governed by Qt's `QFontMetrics` defaults at 9pt; no numeric
+  override this phase. Phase 7 may introduce an explicit `setLineHeight()` if the system
+  metric produces visual crowding.
 
 ---
 
@@ -100,6 +109,9 @@ the ribbon's structure changing.
 | Secondary (30%) | `QPalette::Button` / `QPalette::Base` | Button faces, panel-group surfaces, hover/pressed states via native `QStyle` |
 | Accent (10%) | `QPalette::Highlight` (inherited; Phase 7 replaces with SW blue) | **Active-tab indicator and button hover/checked highlight ONLY** |
 | Destructive | not applicable | No destructive actions exist in this phase (see Copywriting) |
+
+Primary focal point: the active-tab indicator + large icon-over-label buttons are the dominant
+visual anchors; the accent color on the active tab is the strongest eye-draw element.
 
 Accent reserved for: the **active ribbon tab indicator** and the **hover/pressed/checked state
 of a ribbon button** — nothing else. The ribbon must NOT hard-code any hex color this phase;
