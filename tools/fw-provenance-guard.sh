@@ -60,11 +60,18 @@ done
 unset 'FIND_EXPR[${#FIND_EXPR[@]}-1]'
 
 # --- helper: is a given path recorded in the ledger? -------------------------
-# We match the repo-relative path inside a backtick-quoted cell so a substring
-# of another path cannot accidentally satisfy the check.
+# We require the back-ticked path to be the FIRST cell of a real Markdown table
+# row: a leading "| " and a trailing " |" around the back-ticked path. This
+# prevents (a) a substring of a longer back-ticked string and (b) a path that
+# only appears in prose (e.g. the "How to add" example) from falsely satisfying
+# the check. The relative path is regex-escaped so metacharacters (., /, etc.)
+# match literally.
 is_listed() {
     local rel="$1"
-    grep -qF "\`${rel}\`" "${LEDGER}"
+    # Escape regex-significant characters in the path for safe use in grep -E.
+    local rel_esc
+    rel_esc="$(printf '%s' "${rel}" | sed -e 's/[][\.*^$/+?(){}|]/\\&/g')"
+    grep -qE "^\| \`${rel_esc}\` \|" "${LEDGER}"
 }
 
 # --- enumerate + check -------------------------------------------------------
