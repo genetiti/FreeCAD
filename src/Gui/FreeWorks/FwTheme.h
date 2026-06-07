@@ -33,9 +33,9 @@ namespace FreeWorksGui
  * Minimal theme hook for the FreeWorks mode.
  *
  * This is intentionally a no-op stub at the Walking Skeleton stage. The full
- * SolidWorks-style visual theme (recreated look-alike icons, QSS colour scheme,
- * fonts and layout polish) is owned by Phase 7. The hook exists now only so the
- * activation seam has a stable place to call into once theming lands.
+ * reference-CAD-style visual theme (recreated look-alike icons, QSS colour
+ * scheme, fonts and layout polish) is owned by Phase 7. The hook exists now only
+ * so the activation seam has a stable place to call into once theming lands.
  */
 class FreeWorksGuiExport FwTheme
 {

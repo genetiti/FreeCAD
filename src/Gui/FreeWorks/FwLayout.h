@@ -35,7 +35,7 @@ namespace FreeWorksGui
  * Installer for the FreeWorks dock shell.
  *
  * install() backs each permanent Fw_* dock name with a labeled placeholder
- * widget and arranges the docks into the coherent SolidWorks left/right geometry
+ * widget and arranges the docks into the coherent reference-CAD left/right geometry
  * using only the public getMainWindow() getter and public Qt dock APIs. It never
  * edits MainWindow.cpp and pulls in no App-layer header (observe-the-DOM).
  */
