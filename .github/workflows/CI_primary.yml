@@ -71,11 +71,19 @@ jobs:
       changedCppLines: ${{ needs.Prepare.outputs.changedCppLines }}
       changedPythonFiles: ${{ needs.Prepare.outputs.changedPythonFiles }}
 
+  FwHeadlessCompat:
+    needs: [Prepare]
+    if: "!startsWith(github.head_ref, 'refs/heads/backport-')"
+    uses: ./.github/workflows/sub_fwHeadlessCompat.yml
+    with:
+      artifactBasename: FwHeadlessCompat-${{ github.run_id }}
+
   WrapUp:
     needs: [
         Prepare,
         Ubuntu,
-        Lint
+        Lint,
+        FwHeadlessCompat
       ]
     if: always()
     uses: ./.github/workflows/sub_wrapup.yml

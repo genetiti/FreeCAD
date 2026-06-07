@@ -1,0 +1,211 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# ***************************************************************************
+# *                                                                         *
+# *   Copyright (c) 2026 FreeWorks contributors                            *
+# *                                                                         *
+# *   This file is part of FreeCAD.                                         *
+# *                                                                         *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
+# *                                                                         *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
+# *                                                                         *
+# ***************************************************************************
+
+# FreeWorks headless .FCStd-compatibility gate (SHELL-02 / threat T-01-07,
+# T-01-09). This reusable workflow proves the App/Gui separation invariant:
+# the FreeWorks Gui module must never leak GUI state into the App-layer
+# persisted document. It builds FreeCAD with the additive FreeWorks Gui
+# submodule, then runs FreeCADCmd (--console / no GUI) to:
+#   1. create + recompute a document headlessly and save it to a .FCStd,
+#   2. re-open that .FCStd in the unmodified upstream headless path and
+#      recompute it again (upstream-compat round-trip),
+#   3. assert the run prints the HEADLESS_OK sentinel and exits 0, and
+#   4. assert the saved App-layer state (Document.xml inside the .FCStd zip)
+#      carries NO FreeWorks/Gui-only keys (Fw_, FreeWorksGui, NavigationStyle,
+#      GuiDocument.xml content is Gui-layer and is expected; App Document.xml
+#      must be clean) — failing CI if any GUI state leaked into the App layer.
+
+name: FreeWorks Headless Compat
+
+on:
+  workflow_call:
+    inputs:
+      artifactBasename:
+        type: string
+        required: true
+      allowedToFail:
+        default: false
+        type: boolean
+        required: false
+    outputs:
+      reportFile:
+        value: ${{ jobs.HeadlessCompat.outputs.reportFile }}
+
+permissions:
+  contents: read
+
+jobs:
+
+  HeadlessCompat:
+    runs-on: ubuntu-24.04
+    continue-on-error: ${{ inputs.allowedToFail }}
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpfullversion -dumpversion"
+      CCACHE_COMPRESS: true
+      CCACHE_COMPRESSLEVEL: 5
+      CCACHE_CONFIGPATH: ${{ github.workspace }}/ccache/config
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_MAXSIZE: 1G
+      CCACHE_NODIRECT: true
+      CCACHE_NOHASHDIR: true
+      CCACHE_NOINODECACHE: true
+      CCACHE_SLOPPINESS: "include_file_ctime,include_file_mtime,pch_defines,time_macros"
+      CC: /usr/bin/gcc
+      CXX: /usr/bin/g++
+      builddir: ${{ github.workspace }}/build/release/
+      config: release
+      logdir: /tmp/logs/
+      reportdir: /tmp/report/
+      workdir: /tmp/fw-headless/
+      reportfilename: ${{ inputs.artifactBasename }}-report.md
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      reportFile: ${{ steps.Init.outputs.reportFile }}
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checking out source code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: true
+
+      - name: Install FreeCAD dependencies
+        run: ./package/ubuntu/install-apt-packages.sh
+
+      - name: Make needed directories, files and initializations
+        id: Init
+        run: |
+          mkdir -p ${{ env.CCACHE_DIR }}
+          mkdir -p ${{ env.CCACHE_CONFIGPATH }}
+          mkdir -p ${{ env.builddir }}
+          mkdir -p ${{ env.logdir }}
+          mkdir -p ${{ env.reportdir }}
+          mkdir -p ${{ env.workdir }}
+          echo "reportFile=${{ env.reportfilename }}" >> $GITHUB_OUTPUT
+
+      - name: Generate cache key
+        id: genCacheKey
+        uses: ./.github/workflows/actions/linux/generateCacheKey
+        with:
+          compiler: ${{ env.CXX }}
+          qt_major_version: 5
+
+      - name: Restore Compiler Cache
+        id: cache-restore
+        if: always()
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: FC-FWHC-${{ steps.genCacheKey.outputs.cacheKey }}-${{ github.ref }}-${{ github.run_id }}
+          restore-keys: |
+            FC-FWHC-${{ steps.genCacheKey.outputs.cacheKey }}-${{ github.ref }}-
+            FC-FWHC-${{ steps.genCacheKey.outputs.cacheKey }}-
+            FC-${{ steps.genCacheKey.outputs.cacheKey }}-
+
+      - name: Install cmake
+        uses: jwlawson/actions-setup-cmake@0d6a7d60b009d01c9e7523be22153ff8f19460d3 # v2.2.0
+        with:
+          cmake-version: '3.31.6'
+
+      - name: CMake Configure
+        uses: ./.github/workflows/actions/linux/configure
+        with:
+          extraParameters: -G Ninja --preset ${{ env.config }} -DFREECAD_USE_EXTERNAL_PYCXX=ON
+          builddir: ${{ env.builddir }}
+          logFile: ${{ env.logdir }}Cmake.log
+          errorFile: ${{ env.logdir }}CmakeErrors.log
+          reportFile: ${{env.reportdir}}${{ env.reportfilename }}
+
+      - name: CMake Build
+        uses: ./.github/workflows/actions/linux/build
+        with:
+          builddir: ${{ env.builddir }}
+          logFile: ${{ env.logdir }}Build.log
+          errorFile: ${{ env.logdir }}BuildErrors.log
+          reportFile: ${{env.reportdir}}${{ env.reportfilename }}
+
+      # ---------------------------------------------------------------------
+      # Headless round-trip: save in the App layer, recompute, re-open in the
+      # unmodified upstream headless path. No GUI / no FreeWorks workbench is
+      # ever activated, so any FreeWorks/Gui key appearing in App Document.xml
+      # would prove a leak across the Gui -> App trust boundary.
+      # ---------------------------------------------------------------------
+      - name: Headless .FCStd save + recompute + re-open (HEADLESS_OK gate)
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          FCSTD="${{ env.workdir }}/fw_headless.FCStd"
+          "${{ env.builddir }}/bin/FreeCADCmd" --console -c "
+import FreeCAD as App
+doc = App.newDocument('fw_headless')
+box = doc.addObject('App::FeatureTest', 'FwHeadlessProbe')
+doc.recompute()
+doc.saveAs(r'${FCSTD}')
+App.closeDocument(doc.Name)
+# Re-open through the unmodified upstream headless path and recompute again.
+doc2 = App.openDocument(r'${FCSTD}')
+doc2.recompute()
+assert doc2.Objects, 'reopened document has no objects'
+App.closeDocument(doc2.Name)
+print('HEADLESS_OK')
+" | tee "${{ env.logdir }}headless.log"
+          grep -q "HEADLESS_OK" "${{ env.logdir }}headless.log"
+
+      # ---------------------------------------------------------------------
+      # App/Gui separation assertion: the saved App-layer Document.xml must
+      # carry NO FreeWorks/Gui-only keys. (GuiDocument.xml is the Gui layer and
+      # is explicitly excluded — only App Document.xml is checked.)
+      # ---------------------------------------------------------------------
+      - name: Assert no App-layer GUI-state leak (Fw_/FreeWorksGui/NavigationStyle)
+        run: |
+          set -euo pipefail
+          FCSTD="${{ env.workdir }}/fw_headless.FCStd"
+          EXTRACT="${{ env.workdir }}/extract"
+          rm -rf "${EXTRACT}"
+          mkdir -p "${EXTRACT}"
+          # .FCStd is a zip archive; pull out only the App-layer Document.xml.
+          unzip -o "${FCSTD}" -d "${EXTRACT}"
+          APPXML="${EXTRACT}/Document.xml"
+          test -f "${APPXML}" || { echo "App-layer Document.xml missing from .FCStd"; exit 1; }
+          echo "Scanning App-layer Document.xml for leaked GUI state..."
+          if grep -E -i "Fw_|FreeWorksGui|NavigationStyle|SolidWorksNavigationStyle|FwMacNavProfile" "${APPXML}"; then
+            echo "LEAK DETECTED: FreeWorks/Gui state found in App-layer Document.xml" >&2
+            echo "The Gui -> App trust boundary was violated (threat T-01-07)." >&2
+            exit 1
+          fi
+          echo "App-layer state clean: no FreeWorks/Gui keys leaked. HEADLESS_OK confirmed."
+
+      - name: Upload headless logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ inputs.artifactBasename }}-HeadlessCompat-Logs
+          path: |
+            ${{ env.logdir }}
+            ${{ env.workdir }}
