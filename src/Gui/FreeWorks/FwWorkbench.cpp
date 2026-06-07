@@ -25,7 +25,6 @@
 #include "PreCompiled.h"
 
 #include <Gui/DockWindowManager.h>
-#include <Gui/MainWindow.h>
 
 #include "FwWorkbench.h"
 #include "FwLayout.h"
@@ -43,12 +42,10 @@ FwWorkbench::~FwWorkbench() = default;
 
 void FwWorkbench::activated()
 {
-    // Mount the coherent FreeWorks dock geometry, then run the standard
-    // activation (which sets up menus, toolbars and dock windows).
-    FwLayout::install(Gui::getMainWindow());
-
     // Default the 3D-viewport navigation to the reference-CAD mouse model when
     // the user has not chosen one (NAV-01). No-op if a nav style is already set.
+    // (The dock placeholders are registered in setupDockWindows(), which the
+    // framework runs earlier in Workbench::activate() — see the note there.)
     FwNavigationDefault::applyDefault();
 
     StdWorkbench::activated();
@@ -75,6 +72,16 @@ Gui::ToolBarItem* FwWorkbench::setupCommandBars() const
 
 Gui::DockWindowItems* FwWorkbench::setupDockWindows() const
 {
+    // Back each permanent Fw_* dock NAME with a placeholder widget BEFORE the
+    // framework consumes the returned items. Workbench::activate() runs
+    //     DockWindowItems* dw = setupDockWindows();
+    //     DockWindowManager::instance()->setup(dw);   // looks up widgets by name
+    // back-to-back, and setup() only creates a QDockWidget when a widget is
+    // already registered under that name. activated() runs LATER (after setup()),
+    // so registering there meant the docks never appeared on first activation.
+    // Registering here guarantees the widgets exist when setup() looks them up.
+    FwLayout::install();
+
     auto* root = new Gui::DockWindowItems();
 
     // PERMANENT FreeWorks dock NAMES (OQ-2): later phases swap the content behind

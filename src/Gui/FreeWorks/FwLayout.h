@@ -26,24 +26,23 @@
 
 #include "PreCompiled.h"
 
-class QMainWindow;
-
 namespace FreeWorksGui
 {
 
 /**
  * Installer for the FreeWorks dock shell.
  *
- * install() backs each permanent Fw_* dock name with a labeled placeholder
- * widget and arranges the docks into the coherent reference-CAD left/right geometry
- * using only the public getMainWindow() getter and public Qt dock APIs. It never
- * edits MainWindow.cpp and pulls in no App-layer header (observe-the-DOM).
+ * install() backs each permanent Fw_* dock name with a uniquely-named, titled
+ * placeholder widget via the public Gui::DockWindowManager singleton and public
+ * Qt dock APIs. It never edits MainWindow.cpp and pulls in no App-layer header
+ * (observe-the-DOM). It is called from FwWorkbench::setupDockWindows() so the
+ * widgets exist before the framework's DockWindowManager::setup() consumes them.
  */
 class FreeWorksGuiExport FwLayout
 {
 public:
-    /// Mount the FreeWorks placeholder dock shell into the given main window.
-    static void install(QMainWindow* mainWindow);
+    /// Register the FreeWorks placeholder docks under their permanent Fw_* names.
+    static void install();
 };
 
 }  // namespace FreeWorksGui
