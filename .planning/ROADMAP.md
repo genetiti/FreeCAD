@@ -13,7 +13,7 @@ This milestone turns FreeCAD's Qt6 Gui layer into a SolidWorks-faithful part-mod
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: SolidWorks Mode Foundation** - Additive module shell, upstream-merge + asset-provenance discipline, CI gates, and SW navigation as the default — launch into a coherent SolidWorks-mode skeleton that *navigates* like SW
+- [x] **Phase 1: SolidWorks Mode Foundation** - Additive module shell, upstream-merge + asset-provenance discipline, CI gates, and SW navigation as the default — launch into a coherent SolidWorks-mode skeleton that *navigates* like SW (completed 2026-06-07)
 - [ ] **Phase 2: CommandManager Ribbon** - Tabbed top ribbon (Features/Sketch/Evaluate) with large labeled icons, flyouts, and context-driven tab switching, driven by FreeCAD's command registry
 - [ ] **Phase 3: FeatureManager Design Tree** - Left-docked ordered feature tree with origin/planes node, draggable rollback bar, F2 rename, and drag-to-reorder
 - [ ] **Phase 4: PropertyManager Panel** - Left slide-in command panel with green-✓/red-✗ header, collapsible rollouts, pink selection-reference boxes, live preview, in-tree double-click edit, and the sketch→feature flow
@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 01-01-PLAN.md — Walking Skeleton: FreeWorks module + FwWorkbench + Fw_* dock shell (SHELL-01)
 - [x] 01-02-PLAN.md — SolidWorks navigation default + macOS substitute profile (NAV-01)
 - [x] 01-03-PLAN.md — Cross-platform build + headless .FCStd-compat gate (SHELL-02)
-- [ ] 01-04-PLAN.md — Merge-safety, asset provenance & trademark discipline (SHELL-02)
+- [x] 01-04-PLAN.md — Merge-safety, asset provenance & trademark discipline (SHELL-02)
 
 **UI hint**: yes
 
@@ -151,7 +151,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. SolidWorks Mode Foundation | 3/4 | In Progress|  |
+| 1. SolidWorks Mode Foundation | 4/4 | Complete   | 2026-06-07 |
 | 2. CommandManager Ribbon | 0/TBD | Not started | - |
 | 3. FeatureManager Design Tree | 0/TBD | Not started | - |
 | 4. PropertyManager Panel | 0/TBD | Not started | - |
