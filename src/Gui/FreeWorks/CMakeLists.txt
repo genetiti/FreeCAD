@@ -17,11 +17,14 @@ qt_add_resources(FreeWorks_QRC_SRCS ${FreeWorks_RES_SRCS})
 set(FreeWorks_CPP_SRCS
     PreCompiled.cpp
     FwTheme.cpp
+    FwWorkbench.cpp
 )
 
 set(FreeWorks_HPP_SRCS
     PreCompiled.h
     FwTheme.h
+    FwLayout.h
+    FwWorkbench.h
 )
 
 set(FreeWorks_SRCS
