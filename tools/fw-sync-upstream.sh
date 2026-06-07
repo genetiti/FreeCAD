@@ -48,11 +48,24 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 # --- configuration ----------------------------------------------------------
-# Default PINNED upstream commit. This is the reproducible drill target — the
-# fork's pre-FreeWorks upstream base, against which the ONLY shared-file diff
-# outside src/Gui/FreeWorks/ must be the marked src/Gui/CMakeLists.txt edit. Bump
-# it deliberately when re-baselining the fork against a newer upstream snapshot.
-DEFAULT_PIN="fa185a2b007d0e0778113fb5e7843a0de32e1527"
+# Default PINNED upstream commit. This MUST be a genuine PRISTINE upstream FreeCAD
+# commit that predates ALL fork edits (both src/ and .planning/) — otherwise the
+# load-bearing diff in step 4 cannot see shared-file edits introduced at or before
+# the pin, giving false assurance (threat T-01-12).
+#
+# Chosen as the parent of the first fork commit ("chore: track .planning and add
+# project config", 048d4f7161) on the solidworks branch — i.e. the merge-base of
+# the fork with upstream FreeCAD `main`. That commit is upstream PR #30001
+# ("BIM: fix import issues related to switching to Strict IFC"); it contains no
+# .planning/ tree and no src/Gui/FreeWorks/ module, so diffing against it surfaces
+# EVERY shared-file edit the fork has made.
+#
+# Re-baselining procedure when bumping this pin:
+#   1. pick a newer pristine upstream commit (must be an ancestor of HEAD and
+#      reachable on the upstream remote);
+#   2. confirm `git ls-tree <sha> .planning src/Gui/FreeWorks` is empty;
+#   3. update DEFAULT_PIN below and re-run this drill (it self-checks ancestry).
+DEFAULT_PIN="768e237091ff3a0af19b36aa8d15d0b867a49578"
 DEFAULT_URL="https://github.com/FreeCAD/FreeCAD.git"
 
 PINNED_SHA="${1:-${FW_UPSTREAM_PIN:-${DEFAULT_PIN}}}"
@@ -68,6 +81,40 @@ echo "fw-sync-upstream: drill starting"
 echo "  repo root    : ${REPO_ROOT}"
 echo "  pinned SHA   : ${PINNED_SHA}"
 echo "  upstream URL : ${UPSTREAM_URL}"
+echo
+
+# ---------------------------------------------------------------------------
+# Step 0: self-check the pin is a valid PRISTINE upstream base.
+#
+# When the pin is resolvable locally (the common case — the fork is built on top
+# of it, so it is an ancestor of HEAD), assert that:
+#   (a) it is genuinely an ancestor of HEAD (otherwise the step-4 diff is bogus),
+#   (b) its tree carries NO fork artifacts (.planning/ or src/Gui/FreeWorks/),
+#       which would mean the pin is a fork-internal commit, not a pristine base.
+# These guards turn the CR-04 failure mode (pin silently points at a fork commit)
+# into a loud, actionable error. They are skipped only when the pin is genuinely
+# unresolvable (offline + not yet fetched), where step 4 already falls back to a
+# structural history scan.
+# ---------------------------------------------------------------------------
+if git cat-file -e "${PINNED_SHA}^{commit}" 2>/dev/null; then
+    if ! git merge-base --is-ancestor "${PINNED_SHA}" HEAD 2>/dev/null; then
+        echo "fw-sync-upstream: FAIL — pinned SHA ${PINNED_SHA} is not an ancestor of HEAD." >&2
+        echo "fw-sync-upstream:        the merge-discipline diff would not cover the fork's edits." >&2
+        exit 1
+    fi
+    FORK_ARTIFACTS="$(git ls-tree --name-only "${PINNED_SHA}" .planning "${ADDITIVE_PREFIX%/}" 2>/dev/null || true)"
+    if [[ -n "${FORK_ARTIFACTS}" ]]; then
+        echo "fw-sync-upstream: FAIL — pinned SHA ${PINNED_SHA} is NOT a pristine upstream base." >&2
+        echo "fw-sync-upstream:        its tree already contains fork artifact(s):" >&2
+        echo "${FORK_ARTIFACTS}" | sed 's/^/  fork-artifact: /' >&2
+        echo "fw-sync-upstream:        re-point DEFAULT_PIN at a commit before any fork edit." >&2
+        exit 1
+    fi
+    echo "fw-sync-upstream: pin self-check OK (ancestor of HEAD, no fork artifacts)."
+else
+    echo "fw-sync-upstream: NOTICE: pin not resolvable locally; deferring ancestry self-check"
+    echo "fw-sync-upstream:         (step 4 will fall back to the structural history scan)."
+fi
 echo
 
 # ---------------------------------------------------------------------------
