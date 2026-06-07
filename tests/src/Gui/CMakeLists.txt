@@ -15,10 +15,12 @@ add_executable(Gui_tests_run
         InputHintTest.cpp
         SelectionTest.cpp
         FwWorkbench.cpp
+        FwRibbon.cpp
 )
 
 # Qt tests
 setup_qt_test(QuantitySpinBox)
+setup_qt_test(FwRibbonWidget)
 
 target_link_libraries(Gui_tests_run PRIVATE
     GTest::gtest_main
