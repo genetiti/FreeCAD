@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Recreated-original placeholder workbench icon for FreeWorks.
+
+  This is a neutral, in-house authored placeholder so the resource bundle and
+  workbench selector entry compile and render at the Walking Skeleton stage. The
+  final recreated look-alike icon and its ASSET_PROVENANCE.md ledger row are
+  delivered in Plan 04. No proprietary SolidWorks asset is reproduced here.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect x="6" y="6" width="52" height="52" rx="8" fill="#d62828"/>
+  <rect x="14" y="14" width="36" height="36" rx="4" fill="#ffffff" opacity="0.92"/>
+  <text x="32" y="40" font-family="sans-serif" font-size="22" font-weight="bold"
+        text-anchor="middle" fill="#d62828">FW</text>
+</svg>
