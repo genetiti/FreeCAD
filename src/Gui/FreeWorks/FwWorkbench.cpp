@@ -29,6 +29,7 @@
 #include "FwWorkbench.h"
 #include "FwLayout.h"
 #include "FwNavigationDefault.h"
+#include "FwTheme.h"
 
 using namespace FreeWorksGui;
 
@@ -47,6 +48,10 @@ void FwWorkbench::activated()
     // (The dock placeholders are registered in setupDockWindows(), which the
     // framework runs earlier in Workbench::activate() — see the note there.)
     FwNavigationDefault::applyDefault();
+
+    // Exercise the theming seam now (a no-op until Phase 7) so the activation
+    // call site is live and discoverable rather than dead, never-referenced code.
+    FwTheme::apply();
 
     StdWorkbench::activated();
 }
