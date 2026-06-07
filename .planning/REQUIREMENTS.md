@@ -35,7 +35,7 @@ The user chose **full parity** for v1 — the complete SolidWorks part-modeling 
 
 ### Navigation & Selection
 
-- [ ] **NAV-01**: SolidWorks mouse navigation is the default — rotate = MMB drag, pan = Ctrl+MMB (no Ctrl needed in drawings), zoom = scroll wheel with zoom-to-cursor, roll = Alt+MMB, dolly = Shift+MMB, and middle-click an entity then middle-drag to rotate about it *(T5)*
+- [x] **NAV-01**: SolidWorks mouse navigation is the default — rotate = MMB drag, pan = Ctrl+MMB (no Ctrl needed in drawings), zoom = scroll wheel with zoom-to-cursor, roll = Alt+MMB, dolly = Shift+MMB, and middle-click an entity then middle-drag to rotate about it *(T5)*
 - [ ] **NAV-02**: User selects with SolidWorks semantics — left-click face/edge/vertex, click-empty deselects, Ctrl-click multi-select, **box selection** (drag left→right = items fully enclosed) and **cross selection** (drag right→left = items crossing the boundary *plus* those enclosed) *(T6)*
 - [ ] **NAV-03**: Hovering a face/edge/vertex pre-selection-highlights it (SW color/feel) and shows the element name *(T7)*
 - [ ] **NAV-04**: User can toggle selection filters (faces/edges/vertices) via a floating filter toolbar and F-key bindings *(D6)*
@@ -98,7 +98,7 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 |-------------|-------|--------|
 | SHELL-01 | Phase 1 | Complete |
 | SHELL-02 | Phase 1 | Pending |
-| NAV-01 | Phase 1 | Pending |
+| NAV-01 | Phase 1 | Complete |
 | RIBBON-01 | Phase 2 | Pending |
 | RIBBON-02 | Phase 2 | Pending |
 | TREE-01 | Phase 3 | Pending |

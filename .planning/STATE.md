@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-06-07T14:15:20.176Z"
+last_updated: "2026-06-07T14:26:52.778Z"
 last_activity: 2026-06-07 -- Phase 01 execution started
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 01 (solidworks-mode-foundation) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-06-07 -- Phase 01 execution started
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 18 | 3 tasks | 13 files |
+| Phase 01 P02 | 2 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Gestures (CANVAS-06) + Instant3D (CANVAS-07) isolated to Phase 6 — highest UX risk (context-menu conflict, general handle system); deferred behind the validated core loop.
 - [Phase ?]: [01-01]: FreeWorks Gui module compiles into FreeCADGui via target_sources; single marked add_subdirectory(FreeWorks) # SW-FORK HOOK is the only shared-file edit
 - [Phase ?]: [01-01]: Permanent Fw_FeatureManager/Fw_PropertyManager/Fw_TaskPane dock names established; observe-the-DOM (no App includes, no MainWindow.cpp edits)
+- [Phase 01]: [01-02]: NAV-01 implemented as a preference default (Gui::SolidWorksNavigationStyle when unset, no-clobber); macOS default = modifier-emulated MMB with GestureNavigationStyle one-click alternative
+- [Phase 01]: [01-02]: Task 3 (Mac-hardware nav feel-test) approved by documentation; live real-hardware validation deferred to MACOS_NAV_PROFILE.md spike checklist (no Mac build tree available)
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07T14:15:00.806Z
+Last session: 2026-06-07T14:25:46.884Z
 Stopped at: Completed 01-01-PLAN.md
 Resume file: None
