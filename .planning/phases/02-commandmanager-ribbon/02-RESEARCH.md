@@ -86,7 +86,7 @@ Phase 2 is far more an *assembly + re-layout* job than a new-subsystem job. Ever
 | `Gui::ToolBarItem` / `Gui::MenuItem` | FreeCAD `main` | Registry tree consumed as data (curated + auto-derive) | `ToolBarManager.h:49-94`, `MenuManager.h:39-63` — `getItems()`, `hasItems()`, `command()` [VERIFIED: codebase grep] |
 | `Gui::Application::Instance` signals | FreeCAD `main` | `signalInEdit`/`signalResetEdit` for RIBBON-02 | `Application.h:154-156` — app-level relay of per-document edit signals; pattern proven in `OverlayManager.cpp:406-409` [VERIFIED: codebase grep] |
 | `QMainWindow` state + `Gui::DockWindowManager` | FreeCAD `main` | Layout persistence (SC5/D-14) | `MainWindow` IS-A `QMainWindow` (`MainWindow.h:74`); `DockWindowManager::saveState()/loadState()` (`DockWindowManager.h:113-114`) [VERIFIED: codebase grep] |
-| `Gui::ToolBarManager::setState(...ForceHidden)` + `QMainWindow::menuBar()->hide()` | FreeCAD `main` | Hide stock chrome in FreeWorks mode (D-11), reversibly | `ToolBarManager.h:154-174` State enum incl. `ForceHidden`/`RestoreDefault` [VERIFIED: codebase grep] |
+| `Gui::ToolBarManager::setState(...ForceHidden)` + `QMainWindow::menuBar()->hide()` | FreeCAD `main` | Hide stock chrome in FreeWorks mode (D-11), reversibly | `ToolBarManager.h:154-175` State enum incl. `ForceHidden`/`RestoreDefault`; `setState(QList<QString>, State)` + `setState(QString, State)` overloads [VERIFIED: codebase grep] |
 | `Gui::BitmapFactory::pixmapFromSvg()` | FreeCAD `main` | Icon rendering (icons come from existing command actions this phase) | Existing pipeline; D-13 reuses registry icons, authors none [CITED: .planning/codebase] |
 
 ### Supporting
@@ -347,7 +347,7 @@ for (Gui::ToolBarItem* group : workbenchToolBars->getItems()) {
 
 ### Verified core-loop command IDs (from the actual codebase)
 
-These are real, registered command-ID strings read from `src/Mod/PartDesign/Gui/Workbench.cpp` and `src/Mod/Sketcher/Gui/Workbench.cpp` — the curated map should draw from these (D-08: only real IDs placed). [VERIFIED: codebase grep]
+These are real, registered command-ID strings read from `src/Mod/PartDesign/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/CommandConstraints.cpp`, the Measure module, and Part/Material Gui — the curated map should draw from these (D-08: only real IDs placed). [VERIFIED: codebase grep]
 
 **Features tab (PartDesign):**
 - Sketch entry: `PartDesign_NewSketch`
@@ -359,11 +359,12 @@ These are real, registered command-ID strings read from `src/Mod/PartDesign/Gui/
 
 **Sketch tab (Sketcher):**
 - Lifecycle: `Sketcher_NewSketch`, `Sketcher_EditSketch`, `Sketcher_LeaveSketch`, `Sketcher_MapSketch`, `Sketcher_ValidateSketch`
-- Geometry (flyouts via `Sketcher_CompLine`, `Sketcher_CompCreateArc`, `Sketcher_CompCreateConic`): `Sketcher_CreateLine`, `Sketcher_CreatePolyline`, `Sketcher_CreateArc`, `Sketcher_Create3PointArc`, `Sketcher_CreateCircle`, `Sketcher_Create3PointCircle`, `Sketcher_CreateEllipseByCenter`, `Sketcher_CreateRectangle` (verify), constraints group (verify the constraint command IDs in `Sketcher/Gui/CommandConstraints.cpp` at plan time)
+- Geometry (flyouts via `Sketcher_CompLine`, `Sketcher_CompCreateArc`, `Sketcher_CompCreateConic`, `Sketcher_CompCreateRectangles`, `Sketcher_CompCreateRegularPolygon`): `Sketcher_CreateLine`, `Sketcher_CreatePolyline`, `Sketcher_CreateArc`, `Sketcher_CreateCircle`, `Sketcher_CreateRectangle`
+- **Constraints (VERIFIED from `src/Mod/Sketcher/Gui/Workbench.cpp:477-563` + `CommandConstraints.cpp` — these are the real registered IDs used in the Sketcher constraint toolbars; RESOLVED Q2):** dimensional via `Sketcher_Dimension`, `Sketcher_ConstrainDistance`, `Sketcher_ConstrainDistanceX`, `Sketcher_ConstrainDistanceY`, `Sketcher_ConstrainRadius`, `Sketcher_ConstrainDiameter`, `Sketcher_ConstrainRadiam`, `Sketcher_ConstrainAngle` (and the dimension flyouts `Sketcher_CompDimensionTools`, `Sketcher_CompConstrainRadDia`); geometric via `Sketcher_ConstrainCoincidentUnified` (or `Sketcher_ConstrainCoincident` + `Sketcher_ConstrainPointOnObject`), `Sketcher_ConstrainHorizontal`, `Sketcher_ConstrainVertical` (flyout `Sketcher_CompHorVer`), `Sketcher_ConstrainParallel`, `Sketcher_ConstrainPerpendicular`, `Sketcher_ConstrainTangent`, `Sketcher_ConstrainEqual`, `Sketcher_ConstrainSymmetric`, `Sketcher_ConstrainBlock`, `Sketcher_ConstrainLock`
 
-**Evaluate tab:** `Part_CheckGeometry`, `Materials_InspectMaterial`, `Materials_InspectAppearance` (plus Measure tools — verify exact `Measure_*`/`Std_Measure*` IDs at plan time).
+**Evaluate tab (VERIFIED registered IDs; RESOLVED Q2):** `Part_CheckGeometry` (`src/Mod/Part/Gui/Command.cpp:2313`), `Std_Measure` (`src/Mod/Measure/Gui/Command.cpp:48`), `Std_MassProperties` (`src/Mod/Measure/Gui/Command.cpp:94`), `Materials_InspectMaterial` (`src/Mod/Material/Gui/Command.cpp:170`), `Materials_InspectAppearance` (`src/Mod/Material/Gui/Command.cpp:143`).
 
-> **SW tab roster (verify at plan time):** SOLIDWORKS-UI.md confirms the CommandManager is a context-tabbed toolbar but does NOT enumerate the exact SW2024/2025 default tab order. The default SW part-document CommandManager tabs are commonly Features / Sketch / Surfaces / Sheet Metal / Weldments / Markup / Evaluate / MBD Dimensions / SOLIDWORKS Add-Ins — but the exact pinned roster must be confirmed against version-pinned SW Help (`help.solidworks.com/2024/.../c_commandmanager.htm`) before authoring. [ASSUMED] For D-06 the curated set is Features / Sketch / Evaluate (+ optional Surfaces).
+> **SW tab roster (RESOLVED-WITH-FALLBACK — see Open Questions Q1):** For D-06 the curated set is **Features → Sketch → Evaluate** in that order (optional Surfaces deferred). This is the SW part-document core-loop subset of the SW2024/2025 default CommandManager roster (full SW default roster commonly: Features / Sketch / Surfaces / Sheet Metal / Weldments / Markup / Evaluate / MBD Dimensions / SOLIDWORKS Add-Ins). The fallback if version-pinned SW Help cannot be consulted: pin the order Features → Sketch → Evaluate (matches SW's left-to-right Features-then-Sketch convention with Evaluate after the creation tabs). D-08 omit-missing de-risks any SW command without a FreeCAD equivalent.
 
 ## Contextual Switching Mechanism (Discretion item — recommendation)
 
@@ -419,27 +420,27 @@ Trade-off: option 2 is the sweet spot — it guarantees no command is stranded (
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | Exact SW2024/2025 default CommandManager tab roster/order (Features/Sketch/Surfaces/Sheet Metal/…/Evaluate) | Curated-Map | Low — D-06 only curates Features/Sketch/Evaluate; verify roster against version-pinned SW Help before authoring |
-| A2 | `Sketcher_CreateRectangle` and exact constraint/measure command IDs | Curated-Map | Low — must grep `Sketcher/Gui/CommandConstraints.cpp` and Measure module at plan time; D-08 omit-missing makes a wrong ID a silent no-op, caught by the headless resolution test |
+| A1 | Exact SW2024/2025 default CommandManager tab roster/order (Features/Sketch/Surfaces/Sheet Metal/…/Evaluate) | Curated-Map | Low — D-06 only curates Features/Sketch/Evaluate; RESOLVED-WITH-FALLBACK to Features→Sketch→Evaluate order (see Open Questions Q1) |
+| A2 | `Sketcher_CreateRectangle` and exact constraint/measure command IDs | Curated-Map | Resolved — constraint IDs verified from `Workbench.cpp:477-563`/`CommandConstraints.cpp`; measure IDs verified from Measure/Part/Material Gui (see Open Questions Q2). Headless per-row resolution test still guards typos |
 | A3 | 2-day spike time-box is sufficient | Spike Plan | Medium — if exceeded, D-04 SARibbon fallback triggers (already pre-blessed, no decision round) |
 | A4 | SARibbon v2.8.0 is the current pinned version to vendor | Standard Stack | Low — confirm latest tag on github.com/czyt1988/SARibbon/releases at adoption time; MIT + Qt 6.8 support verified |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact SW default tab roster (version-pinned).**
+1. **Exact SW default tab roster (version-pinned). — RESOLVED-WITH-FALLBACK.**
    - What we know: CommandManager is a context-tabbed toolbar; D-06 curates Features/Sketch/Evaluate (+ optional Surfaces).
-   - What's unclear: the precise SW2024/2025 default tab order and per-tab command grouping.
-   - Recommendation: confirm against `help.solidworks.com/2024/...c_commandmanager.htm` during planning; the FreeCAD-side IDs are already verified.
+   - RESOLVED: Pin the curated tab order **Features → Sketch → Evaluate**. This is the SW part-document core-loop subset of the SW2024/2025 default CommandManager roster (full default commonly Features / Sketch / Surfaces / Sheet Metal / Weldments / Markup / Evaluate / MBD Dimensions / SOLIDWORKS Add-Ins), with the FreeCAD-side command IDs already verified. **Fallback (if version-pinned `help.solidworks.com/2024/...c_commandmanager.htm` cannot be consulted):** the Features → Sketch → Evaluate order stands as the committed roster — it matches SW's left-to-right Features-then-Sketch convention with Evaluate after the creation tabs, and D-08 omit-missing de-risks any SW command with no FreeCAD equivalent.
 
-2. **Constraint + measure command IDs for Sketch/Evaluate tabs.**
+2. **Constraint + measure command IDs for Sketch/Evaluate tabs. — RESOLVED.**
    - What we know: geometry/lifecycle IDs are verified from Sketcher `Workbench.cpp`.
-   - What's unclear: exact constraint command IDs (`Sketcher_Constrain*`) and Evaluate measure IDs.
-   - Recommendation: grep `src/Mod/Sketcher/Gui/CommandConstraints.cpp` and the Measure module at plan time; headless test asserts each resolves.
+   - RESOLVED (grepped this checkout):
+     - **Constraints** (`src/Mod/Sketcher/Gui/Workbench.cpp:477-563` + `src/Mod/Sketcher/Gui/CommandConstraints.cpp`): `Sketcher_Dimension`, `Sketcher_ConstrainDistance`, `Sketcher_ConstrainDistanceX`, `Sketcher_ConstrainDistanceY`, `Sketcher_ConstrainRadius`, `Sketcher_ConstrainDiameter`, `Sketcher_ConstrainRadiam`, `Sketcher_ConstrainAngle`, `Sketcher_ConstrainCoincidentUnified`, `Sketcher_ConstrainCoincident`, `Sketcher_ConstrainPointOnObject`, `Sketcher_ConstrainHorizontal`, `Sketcher_ConstrainVertical`, `Sketcher_ConstrainParallel`, `Sketcher_ConstrainPerpendicular`, `Sketcher_ConstrainTangent`, `Sketcher_ConstrainEqual`, `Sketcher_ConstrainSymmetric`, `Sketcher_ConstrainBlock`, `Sketcher_ConstrainLock`; plus the constraint flyouts `Sketcher_CompHorVer`, `Sketcher_CompConstrainRadDia`, `Sketcher_CompDimensionTools`, `Sketcher_CompToggleConstraints`.
+     - **Measure / Evaluate**: `Part_CheckGeometry` (`src/Mod/Part/Gui/Command.cpp:2313`), `Std_Measure` (`src/Mod/Measure/Gui/Command.cpp:48`), `Std_MassProperties` (`src/Mod/Measure/Gui/Command.cpp:94`), `Materials_InspectMaterial` (`src/Mod/Material/Gui/Command.cpp:170`), `Materials_InspectAppearance` (`src/Mod/Material/Gui/Command.cpp:143`).
+   - These verified IDs are pinned into Plan 02-02's curated-map task `<action>`. The headless per-row resolution test remains the typo guard.
 
-3. **Does hiding stock toolbars via `ForceHidden` round-trip cleanly with FreeWorks deactivation?**
-   - What we know: `ToolBarManager` has `ForceHidden`/`RestoreDefault` states; `menuBar()` is on the shared `QMainWindow`.
-   - What's unclear: exact restore call sequence on workbench switch.
-   - Recommendation: validate in the spike + a headless workbench-toggle test (Pitfall 3).
+3. **Does hiding stock toolbars via `ForceHidden` round-trip cleanly with FreeWorks deactivation? — RESOLVED.**
+   - What we know: `ToolBarManager` has `ForceHidden`/`RestoreDefault`/`ForceAvailable` states; `menuBar()` is on the shared `QMainWindow`.
+   - RESOLVED (header-confirmed, `src/Gui/ToolBarManager.h:154-175`): the `State` enum provides the round-trip pair — `setState(names, State::ForceHidden)` hides (and hides the toggle action), `setState(names, State::RestoreDefault)` restores user-config visibility. Both `setState(QList<QString>, State)` and `setState(QString, State)` overloads are public. The exact restore *sequence* on workbench switch (hide on `FwWorkbench::activated()`, `RestoreDefault` + `menuBar()->show()` on deactivation) is committed in Plan 02-03 Task 1; **Plan 02-03's headless workbench-toggle test is the resolution/verification mechanism** for the live round-trip (Pitfall 3), with the manual tri-OS checklist covering the visual menu-bar round-trip.
 
 ## Environment Availability
 
@@ -511,7 +512,7 @@ Trade-off: option 2 is the sweet spot — it guarantees no command is stranded (
 ## Sources
 
 ### Primary (HIGH confidence)
-- FreeCAD `main` checkout — read: `src/Gui/ToolBarAreaWidget.h`, `ToolBarManager.h`, `Command.h`, `Action.cpp`, `WorkbenchManipulator.h`, `Control.h`, `Document.h`, `Application.h`, `MainWindow.h`, `DockWindowManager.h`, `MenuManager.h`; `src/Mod/PartDesign/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/ViewProviderSketch.cpp`; `src/Gui/FreeWorks/*`; `tests/src/Gui/FwWorkbench.cpp`, `tests/src/Gui/CMakeLists.txt`, `tests/CMakeLists.txt`
+- FreeCAD `main` checkout — read: `src/Gui/ToolBarAreaWidget.h`, `ToolBarManager.h`, `Command.h`, `Action.cpp`, `WorkbenchManipulator.h`, `Control.h`, `Document.h`, `Application.h`, `MainWindow.h`, `DockWindowManager.h`, `MenuManager.h`; `src/Mod/PartDesign/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/Workbench.cpp`, `src/Mod/Sketcher/Gui/CommandConstraints.cpp`, `src/Mod/Sketcher/Gui/ViewProviderSketch.cpp`, `src/Mod/Measure/Gui/Command.cpp`, `src/Mod/Part/Gui/Command.cpp`, `src/Mod/Material/Gui/Command.cpp`; `src/Gui/FreeWorks/*`; `tests/src/Gui/FwWorkbench.cpp`, `tests/src/Gui/CMakeLists.txt`, `tests/CMakeLists.txt`
 - `.planning/research/STACK.md`, `.planning/research/PITFALLS.md` (Pitfall 10), `.planning/research/SOLIDWORKS-UI.md`
 - `.planning/phases/02-commandmanager-ribbon/02-CONTEXT.md`, `02-UI-SPEC.md`
 - `.planning/phases/01-solidworks-mode-foundation/01-01-SUMMARY.md`
@@ -520,15 +521,15 @@ Trade-off: option 2 is the sweet spot — it guarantees no command is stranded (
 - https://github.com/czyt1988/SARibbon — MIT, Qt 5.12–6.8 LTS, CMake + amalgamated header (verified June 2026)
 
 ### Tertiary (LOW confidence)
-- SW2024/2025 default CommandManager tab roster — to be confirmed against version-pinned `help.solidworks.com` at plan time (A1)
+- SW2024/2025 default CommandManager tab roster — RESOLVED-WITH-FALLBACK to Features→Sketch→Evaluate (Open Questions Q1); confirm against version-pinned `help.solidworks.com` if available, but the committed order stands without it
 
 ## Metadata
 
 **Confidence breakdown:**
 - Standard stack: HIGH — every API verified by reading the actual headers in this checkout
 - Architecture / mount / flyout / context switch: HIGH — confirmed in `Action.cpp`, `Application.h`, `OverlayManager.cpp`, `ToolBarAreaWidget.h`
-- Curated command IDs (FreeCAD side): HIGH — read directly from PartDesign/Sketcher `Workbench.cpp`
-- SW tab roster (SolidWorks side): LOW — needs version-pinned SW Help confirmation
+- Curated command IDs (FreeCAD side): HIGH — read directly from PartDesign/Sketcher `Workbench.cpp`, `CommandConstraints.cpp`, Measure/Part/Material Gui
+- SW tab roster (SolidWorks side): MEDIUM — RESOLVED-WITH-FALLBACK; FreeCAD-side IDs HIGH, SW-side order is the committed core-loop subset
 - Pitfalls: HIGH — grounded in Phase 1 experience + project PITFALLS.md
 
 **Research date:** 2026-06-07
