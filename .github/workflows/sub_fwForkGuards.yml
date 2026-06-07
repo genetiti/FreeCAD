@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# ***************************************************************************
+# *                                                                         *
+# *   Copyright (c) 2026 FreeWorks contributors                            *
+# *                                                                         *
+# *   This file is part of FreeCAD.                                         *
+# *                                                                         *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
+# *                                                                         *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
+# *                                                                         *
+# ***************************************************************************
+
+# FreeWorks fork-guards CI gate (SHELL-02 / D-03).
+#
+# A reusable (workflow_call) job that runs the merge-safety, asset-provenance,
+# and trademark-avoidance guards that keep the fork mergeable, asset-clean, and
+# legally safe. These are fast, build-free static checks:
+#
+#   1. fw-provenance-guard.sh   — every tracked binary image has an
+#                                 ASSET_PROVENANCE.md row; a self-test proves an
+#                                 unlisted asset is rejected (threat T-01-10).
+#   2. fw-string-leak-grep.sh   — zero "SolidWorks" tokens under
+#                                 src/Gui/FreeWorks/ except the allow-listed
+#                                 Gui::SolidWorksNavigationStyle (threat T-01-11).
+#   3. fw-sync-upstream.sh      — the marker-enumeration portion of the
+#                                 upstream-sync drill: every shared-file edit
+#                                 outside src/Gui/FreeWorks/ is // SW-FORK HOOK
+#                                 greppable (threat T-01-12). Runs offline so the
+#                                 gate is hermetic and fast.
+#
+# Mirrors the sub_lint.yml workflow_call shape so it slots into CI_primary.yml.
+
+name: FreeWorks Fork Guards
+
+on:
+  workflow_call:
+    inputs:
+      artifactBasename:
+        type: string
+        required: true
+      allowedToFail:
+        default: false
+        type: boolean
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+
+  ForkGuards:
+    runs-on: ubuntu-24.04
+    continue-on-error: ${{ inputs.allowedToFail }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checking out source code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Full history so the upstream-sync drill can diff against the pin.
+          fetch-depth: 0
+
+      - name: Asset-provenance guard (reject any unlisted binary image)
+        run: |
+          set -euo pipefail
+          bash tools/fw-provenance-guard.sh
+
+      - name: Asset-provenance guard self-test (must reject an unlisted asset)
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          printf 'PNG' > "${tmp}/unlisted.png"
+          if bash tools/fw-provenance-guard.sh "${tmp}"; then
+            echo "self-test FAILED: guard did not reject an unlisted asset" >&2
+            exit 1
+          fi
+          echo "self-test OK: unlisted asset correctly rejected."
+
+      - name: SolidWorks-string leak grep (allow-list Gui::SolidWorksNavigationStyle only)
+        run: |
+          set -euo pipefail
+          bash tools/fw-string-leak-grep.sh
+
+      - name: Upstream-sync drill — shared-edit marker assertion (offline)
+        run: |
+          set -euo pipefail
+          FW_SYNC_OFFLINE=1 bash tools/fw-sync-upstream.sh

@@ -78,12 +78,20 @@ jobs:
     with:
       artifactBasename: FwHeadlessCompat-${{ github.run_id }}
 
+  FwForkGuards:
+    needs: [Prepare]
+    if: "!startsWith(github.head_ref, 'refs/heads/backport-')"
+    uses: ./.github/workflows/sub_fwForkGuards.yml
+    with:
+      artifactBasename: FwForkGuards-${{ github.run_id }}
+
   WrapUp:
     needs: [
         Prepare,
         Ubuntu,
         Lint,
-        FwHeadlessCompat
+        FwHeadlessCompat,
+        FwForkGuards
       ]
     if: always()
     uses: ./.github/workflows/sub_wrapup.yml
