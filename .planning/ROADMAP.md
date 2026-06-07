@@ -58,9 +58,20 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Ribbon tab layout persists across restarts (panel positions and tab state restore correctly), built as a self-contained widget that survives an upstream sync without merge conflict
 
 **Plans**: 4 plans
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Wave 0 test scaffold + native ribbon spike gate (native-vs-SARibbon verdict) (RIBBON-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — Curated declarative map + full FwRibbon build (tabs, large labeled buttons, flyouts, auto-derive) (RIBBON-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — Mount in top area, reversible chrome hiding, discoverability escape hatch, layout persistence (RIBBON-01)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-04-PLAN.md — Context tab switching: sketch-edit activates the Sketch tab, restores on exit (RIBBON-02)
 
 **UI hint**: yes
