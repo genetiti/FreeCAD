@@ -20,6 +20,7 @@ set(FreeWorks_CPP_SRCS
     FwLayout.cpp
     FwNavigationDefault.cpp
     FwWorkbench.cpp
+    FwRibbon.cpp
 )
 
 set(FreeWorks_HPP_SRCS
@@ -28,6 +29,7 @@ set(FreeWorks_HPP_SRCS
     FwLayout.h
     FwNavigationDefault.h
     FwWorkbench.h
+    FwRibbon.h
 )
 
 set(FreeWorks_SRCS
