@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. SolidWorks navigation is the fork default: rotate = MMB drag, pan = Ctrl+MMB, zoom = scroll-wheel zoom-to-cursor, roll = Alt+MMB, dolly = Shift+MMB, and middle-clicking an entity then middle-dragging rotates about it — with an explicit macOS no-middle-button / trackpad profile
   4. A CI asset-provenance guard rejects any binary image lacking a source entry in `ASSET_PROVENANCE.md`, and a headless/`--console` `.FCStd`-compat gate proves no GUI state leaks into the App layer
   5. A scripted upstream-sync drill against a pinned upstream commit runs and completes in hours not days, with all unavoidable shared-file touch points greppable via `// SW-FORK HOOK`**Plans**: 4 plans
-- [ ] 01-01-PLAN.md — Walking Skeleton: FreeWorks module + FwWorkbench + Fw_* dock shell (SHELL-01)
+- [x] 01-01-PLAN.md — Walking Skeleton: FreeWorks module + FwWorkbench + Fw_* dock shell (SHELL-01)
 - [ ] 01-02-PLAN.md — SolidWorks navigation default + macOS substitute profile (NAV-01)
 - [ ] 01-03-PLAN.md — Cross-platform build + headless .FCStd-compat gate (SHELL-02)
 - [ ] 01-04-PLAN.md — Merge-safety, asset provenance & trademark discipline (SHELL-02)
@@ -151,7 +151,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. SolidWorks Mode Foundation | 0/TBD | Not started | - |
+| 1. SolidWorks Mode Foundation | 1/4 | In Progress|  |
 | 2. CommandManager Ribbon | 0/TBD | Not started | - |
 | 3. FeatureManager Design Tree | 0/TBD | Not started | - |
 | 4. PropertyManager Panel | 0/TBD | Not started | - |

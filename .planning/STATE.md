@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-06-07T05:29:49.956Z"
-last_activity: 2026-06-06 — Roadmap created (7 phases, 25/25 requirements mapped)
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-06-07T14:15:20.176Z"
+last_activity: 2026-06-07 -- Phase 01 execution started
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** A SolidWorks user can open FreeCAD and be immediately productive — it looks, navigates, and behaves like SolidWorks — with no FreeCAD tutorial required.
-**Current focus:** Phase 1 — SolidWorks Mode Foundation
+**Current focus:** Phase 01 — solidworks-mode-foundation
 
 ## Current Position
 
-Phase: 1 of 7 (SolidWorks Mode Foundation)
-Plan: 0 of TBD in current phase
+Phase: 01 (solidworks-mode-foundation) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-06-06 — Roadmap created (7 phases, 25/25 requirements mapped)
+Last activity: 2026-06-07 -- Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 18 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Ribbon (Phase 2) precedes tree/panels — highest net-new risk; native-vs-SARibbon decision must resolve before downstream tab-switching depends on it.
 - [Roadmap]: PropertyManager (Phase 4) is the keystone — TREE-03, FLOW-01, PROP-02 terminate in it; built by hosting existing `Control`/`TaskView`, not replacing it.
 - [Roadmap]: Gestures (CANVAS-06) + Instant3D (CANVAS-07) isolated to Phase 6 — highest UX risk (context-menu conflict, general handle system); deferred behind the validated core loop.
+- [Phase ?]: [01-01]: FreeWorks Gui module compiles into FreeCADGui via target_sources; single marked add_subdirectory(FreeWorks) # SW-FORK HOOK is the only shared-file edit
+- [Phase ?]: [01-01]: Permanent Fw_FeatureManager/Fw_PropertyManager/Fw_TaskPane dock names established; observe-the-DOM (no App includes, no MainWindow.cpp edits)
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07T04:26:34.914Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-solidworks-mode-foundation/01-CONTEXT.md
+Last session: 2026-06-07T14:15:00.806Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None

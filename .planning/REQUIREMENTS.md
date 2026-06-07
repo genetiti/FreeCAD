@@ -13,7 +13,7 @@ The user chose **full parity** for v1 — the complete SolidWorks part-modeling 
 
 ### Shell & Activation
 
-- [ ] **SHELL-01**: User can launch FreeCAD into a "SolidWorks mode" that applies the full SolidWorks-style interface (ribbon, left tree, left PropertyManager, SW navigation) as one coherent layout
+- [x] **SHELL-01**: User can launch FreeCAD into a "SolidWorks mode" that applies the full SolidWorks-style interface (ribbon, left tree, left PropertyManager, SW navigation) as one coherent layout
 - [ ] **SHELL-02**: The SolidWorks-style interface builds and runs on Windows, macOS, and Linux
 
 ### CommandManager (Ribbon)
@@ -96,7 +96,7 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHELL-01 | Phase 1 | Pending |
+| SHELL-01 | Phase 1 | Complete |
 | SHELL-02 | Phase 1 | Pending |
 | NAV-01 | Phase 1 | Pending |
 | RIBBON-01 | Phase 2 | Pending |
@@ -123,6 +123,7 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | PANE-01 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 25 total (enumerated count — the "23" cited during init was a miscount; the v1 checkbox set is SHELL×2, RIBBON×2, TREE×4, PROP×2, NAV×4, FLOW×1, CANVAS×8, PANE×1, THEME×1 = 25)
 - Mapped to phases: 25 (100%)
 - Unmapped: 0
