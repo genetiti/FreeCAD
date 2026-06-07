@@ -18,6 +18,7 @@ set(FreeWorks_CPP_SRCS
     PreCompiled.cpp
     FwTheme.cpp
     FwLayout.cpp
+    FwNavigationDefault.cpp
     FwWorkbench.cpp
 )
 
@@ -25,6 +26,7 @@ set(FreeWorks_HPP_SRCS
     PreCompiled.h
     FwTheme.h
     FwLayout.h
+    FwNavigationDefault.h
     FwWorkbench.h
 )
 

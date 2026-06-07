@@ -29,6 +29,7 @@
 
 #include "FwWorkbench.h"
 #include "FwLayout.h"
+#include "FwNavigationDefault.h"
 
 using namespace FreeWorksGui;
 
@@ -45,6 +46,11 @@ void FwWorkbench::activated()
     // Mount the coherent FreeWorks dock geometry, then run the standard
     // activation (which sets up menus, toolbars and dock windows).
     FwLayout::install(Gui::getMainWindow());
+
+    // Default the 3D-viewport navigation to the reference-CAD mouse model when
+    // the user has not chosen one (NAV-01). No-op if a nav style is already set.
+    FwNavigationDefault::applyDefault();
+
     StdWorkbench::activated();
 }
 
