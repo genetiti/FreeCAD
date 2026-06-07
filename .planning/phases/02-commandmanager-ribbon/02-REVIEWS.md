@@ -1,168 +1,178 @@
 ---
 phase: 2
+cycle: 2
 reviewers: [codex]
-reviewed_at: 2026-06-07T17:41:14Z
+reviewed_at: 2026-06-07T18:11:13Z
 plans_reviewed: [02-01-PLAN.md, 02-02-PLAN.md, 02-03-PLAN.md, 02-04-PLAN.md]
+prior_cycle_high: 8
+current_cycle_high: 4
 ---
 
-# Cross-AI Plan Review — Phase 2
+# Cross-AI Plan Review — Phase 2 (Convergence Cycle 2)
+
+> Cycle 1 raised 8 HIGH concerns. The plans were revised to address all 8 (each plan now
+> cites "REVIEW concern N" inline). This cycle (1) confirms whether each cycle-1 HIGH is
+> genuinely resolved and (2) surfaces remaining / newly-introduced HIGH concerns. Codex was
+> run inside the repo so it could check claims against the live FreeCAD/Qt APIs; the
+> orchestrator independently re-verified every load-bearing NEW HIGH against source before
+> recording it (see "Orchestrator Verification" below).
 
 ## Codex Review
-
-## Overall Summary
-
-The wave sequencing is directionally sound and the additive `src/Gui/FreeWorks` discipline is strong, but several plans treat unverified Qt/FreeCAD integration assumptions as settled. The biggest risks are in `02-03`: the planned top-area mount and persistence mechanism do not match the current APIs. `ToolBarManager::toolBarAreaWidget()` is not an enum lookup for `TopToolBarArea`, and `ToolBarAreaWidget::saveState()` only persists `QToolBar` children, not a plain `QTabWidget`. Also, the headless tests are likely weaker than claimed because QWidget construction requires a `QApplication`, and PartDesign/Sketcher command IDs will not resolve unless their GUI modules are explicitly loaded.
 
 ## Plan 02-01
 
 **Summary**
-Good as a thin spike/test scaffold, but the spike gate is not actually supported by the implementation tasks. It asks humans to verify mounted top-area tabs, context switching, and convincing visual parity before those capabilities exist. The automated test setup also appears incomplete for QWidget construction and module command registration.
+The revised plan correctly separates widget construction into a Qt test target and recognizes that module GUI init is required for PartDesign/Sketcher command IDs. The remaining flaw is the bootstrap: importing `PartDesignGui`/`SketcherGui` requires a live `Gui::Application::Instance`, and the plan only specifies `tests::initApplication()` (App-only) plus creating a `QApplication`.
 
 **Strengths**
-- Starts with a minimal vertical slice instead of committing to a full ribbon prematurely.
-- Correctly uses `Gui::CommandManager`/`Command::addTo()` rather than duplicating command backends.
-- Makes the native-vs-SARibbon decision explicit and blocks downstream plans on the verdict.
-- Keeps work additive in `src/Gui/FreeWorks` and tests.
+- Correctly moves `FwRibbon : QTabWidget` construction out of `Gui_tests_run` into `setup_qt_test`/`QTEST_MAIN`.
+- Correctly identifies that `PartDesign_*`/`Sketcher_*` commands register in module GUI init, not by linking `FreeCADGui`.
+- Avoids QWidget construction in the GTest file.
+- Uses the real `Gui::CommandManager::getCommandByName()` path.
 
 **Concerns**
-- **HIGH:** `tests::initApplication()` only initializes App, not a `QApplication` or necessarily `Gui::Application::Instance`; constructing `QTabWidget` headless without a `QApplication` will fail. See [InitApplication.h](/Users/nguyenthuong/Repository/FreeCAD/tests/src/App/InitApplication.h:10).
-- **HIGH:** `PartDesign_Pad` resolution will likely fail unless `PartDesignGui` is loaded; PartDesign GUI commands are registered from module GUI init, not by linking `FreeCADGui` alone. See [AppPartDesignGui.cpp](/Users/nguyenthuong/Repository/FreeCAD/src/Mod/PartDesign/Gui/AppPartDesignGui.cpp:123).
-- **HIGH:** The D-03 human spike checklist includes top-area mounting, three tabs, context switching, and live sketch restore, but Tasks 1-2 only build a minimal unmounted `QTabWidget`. The gate may become subjective/manual theater rather than a real engineering decision.
-- **MEDIUM:** `FwRibbon` lacks an export macro while tests instantiate it from `Gui_tests_run`; this is a possible Windows DLL visibility issue.
-- **MEDIUM:** “No QApplication event loop” is fine, but “no QApplication” is not. The plan wording risks conflating those.
+- **HIGH:** `tests::initApplication()` only calls `App::Application::init()`; it does NOT create `Gui::Application::Instance`. In this checkout, `PYMOD_INIT(PartDesignGui)` rejects loading with `ImportError: "Cannot load Gui module in console application."` when `Gui::Application::Instance` is null (verified: `AppPartDesignGui.cpp:103-105`). The proposed module-import bootstrap therefore fails — and the command-ID resolution test (the entire typo guard for RIBBON-01 SC2) asserts nothing useful.
+- **MEDIUM:** A `QApplication` created in the bootstrap must be static/process-lifetime-owned, not a local temporary.
+- **MEDIUM:** Tests are not gated on `BUILD_PART_DESIGN`/`BUILD_SKETCHER`/`BUILD_MEASURE` module build options.
 
 **Suggestions**
-- Add a small test GUI bootstrap: create a `QApplication` object and initialize `Gui::Application` if absent, without calling `exec()`.
-- Explicitly load `FreeCADGui`, `SketcherGui`, and `PartDesignGui` in the test setup, or move command-resolution tests to a target that already initializes module GUI commands.
-- Split the spike gate into primitives that the code actually builds: native tab widget, large action buttons, one verified `ActionGroup` split button, and a throwaway mounted prototype.
-- If the gate requires live top-area mounting/context switch, create a throwaway spike-only harness or defer those checklist items to the plans that implement them.
+- Add an explicit bootstrap sequence: create/verify `QApplication`; construct/initialize a `Gui::Application` singleton if `Gui::Application::Instance == nullptr`; THEN import the GUI modules. Assert `Gui::Application::Instance != nullptr` before any `commandManager()` use.
+- Share the module-import list with Plan 02 and include `MeasureGui`.
 
-**Risk Assessment**
-**HIGH.** The concept is good, but the first automated tests are likely to fail or give false confidence unless GUI/module initialization is fixed.
+**Risk Assessment: HIGH** — QWidget harness is fixed, but command-registration tests still likely fail/crash because the GUI application singleton is never created.
 
 ## Plan 02-02
 
 **Summary**
-The curated declarative map is the right architectural move, and using command IDs as data preserves App/Gui separation. The weak spots are auto-derive sourcing, flyout verification, and UI fidelity assumptions about native `QToolBar`/`QToolButton` behavior.
+Fixes the live-source and flyout-verification issues well: `Workbench::getToolbarItems()` is the correct value-copy source, and inspecting the produced `QToolButton` is the right flyout proof. The main blocker is command loading for the curated Evaluate tab.
 
 **Strengths**
-- `FwRibbonMap` is additive, merge-friendly, and keeps command curation separate from rendering.
-- D-08 omit-missing is a good safety policy.
-- Using `Command::addTo(panel)` correctly preserves existing QAction shortcuts, icons, enabled-state, and backend behavior.
-- Exposing `setCurrentTab()` early helps Plan 02-04.
+- Correctly avoids the transient `setupToolBars()` tree, uses `Workbench::getToolbarItems()` (copied value list).
+- Correctly handles the `"Separator"` sentinel.
+- Correctly requires actual widget inspection for flyouts: `MenuButtonPopup` + populated menu.
+- Listed command IDs are largely real in this checkout.
 
 **Concerns**
-- **HIGH:** Auto-derive needs a real source for the workbench `ToolBarItem` tree. By activation time, `setupToolBars()` has been consumed/deleted by `Workbench::activate()`. Plan 02-03 says `buildAutoDerived(...)` when no curated map exists, but does not define how to obtain the tree.
-- **HIGH:** The flyout test proposal is muddled. `CommandManager::getGroupCommands()` groups by command group metadata, not necessarily by a group command ID. The robust test is: resolve command, call `addTo(QToolBar)`, find the resulting `QToolButton`, assert `MenuButtonPopup` and menu action count.
-- **MEDIUM:** `ToolBarItem` separators are commonly the literal `"Separator"`, not `command()==""`; the auto-derive logic may miss separators. See [Workbench.cpp](/Users/nguyenthuong/Repository/FreeCAD/src/Gui/Workbench.cpp:293).
-- **MEDIUM:** “2-line wrapped labels, never ellipsis” is not guaranteed by plain `QToolBar` plus `Qt::ToolButtonTextUnderIcon`; native `QToolButton` text wrapping needs explicit validation or a custom tool button.
-- **MEDIUM:** The `kKnownGaps` allow-list can undermine the “verified pinned IDs” contract if it silently accepts typos.
+- **HIGH:** The curated map pins `Std_Measure` and `Std_MassProperties` on the Evaluate tab, but both are registered by the Measure GUI module (verified: `src/Mod/Measure/Gui/Command.cpp:48,94`), NOT by `PartDesignGui`/`SketcherGui`. Plan 01's bootstrap imports only `PartDesignGui, SketcherGui`, so the per-row resolution test (which Plan 02 mandates must assert EVERY curated row resolves non-null) will fail, and the runtime Evaluate tab would silently omit those buttons via D-08.
+- **HIGH:** The runtime build path still depends on modules being loaded; because unresolved IDs are silently skipped (D-08), a missing module import degrades the ribbon silently rather than loudly.
+- **MEDIUM:** `cmd->addTo(QToolBar*)` gives native `QToolButton`s, but two-line word-wrap / no-ellipsis is not guaranteed by the standard toolbar path.
+- **MEDIUM:** Auto-derive/overflow should preserve command order/grouping deterministically; the plan implies but does not require a stable-ordering test.
 
 **Suggestions**
-- Define auto-derive from either active `QToolBar` widgets after `ToolBarManager::setup()` or from `Workbench::getToolbarItems()`, not from a transient protected tree unless you add a lifecycle seam.
-- Make flyout tests inspect actual widget/action output, not only registry metadata.
-- Treat `"Separator"` as the separator sentinel.
-- Keep `kKnownGaps` empty initially; represent real product gaps as comments without fake command IDs.
-- Add a screenshot/manual validation item for label wrapping and button size, since headless tests cannot prove visual fidelity.
+- Add a curated preload list (`PartDesignGui`, `SketcherGui`, `PartGui`, `MeasureGui`, `MatGui` as needed) and make the per-row resolution test fail on ANY unresolved row including `Std_Measure`.
+- Keep the flyout test exactly as revised (inspect the real `QToolButton`).
 
-**Risk Assessment**
-**MEDIUM-HIGH.** The map architecture is solid, but auto-derive and flyout verification need correction to satisfy RIBBON-01 reliably.
+**Risk Assessment: HIGH** — the two cycle-1 concerns for this plan are mostly fixed, but Evaluate-tab command registration is not yet load-bearing.
 
 ## Plan 02-03
 
 **Summary**
-This is the riskiest plan. The requirements are correct, but the proposed mount and persistence seams do not match the current FreeCAD/Qt implementation. A plain `FwRibbon : QTabWidget` added to a toolbar-area layout will not participate in `QMainWindow::saveState()`, and the planned public API for fetching `TopToolBarArea` does not exist.
+Genuinely corrects the bad mount seam: wrapping the ribbon in a real `QToolBar` mounted via `addToolBar(Qt::TopToolBarArea, ...)` matches Qt/FreeCAD persistence behavior. Remaining risks are test setup and chrome-hiding precision.
 
 **Strengths**
-- Correctly targets reversible chrome hiding as FreeWorks-scoped behavior.
-- Avoids editing `MainWindow.cpp`, which is important for upstream sync.
-- Includes a D-12 discoverability path instead of simply hiding all legacy command surfaces.
-- Recognizes unique object names as necessary for persistence.
+- Correctly avoids `ToolBarManager::toolBarAreaWidget(QWidget*)` (it finds the area containing a widget; not a top-area lookup).
+- Correctly uses a real `QToolBar` wrapper with stable `objectName` for `QMainWindow::saveState()`.
+- Correctly persists the selected tab separately via `ParameterGrp`.
+- Adds idempotent mount/unmount and a discoverability escape hatch.
 
 **Concerns**
-- **HIGH:** `ToolBarManager::toolBarAreaWidget(QWidget*)` does not fetch by `ToolBarArea::TopToolBarArea`; it only looks up area widgets containing an existing widget, and currently searches status/menu corner area widgets. See [ToolBarManager.h](/Users/nguyenthuong/Repository/FreeCAD/src/Gui/ToolBarManager.h:181) and [ToolBarManager.cpp](/Users/nguyenthuong/Repository/FreeCAD/src/Gui/ToolBarManager.cpp:581).
-- **HIGH:** `QMainWindow::saveState()` will not persist a plain child `QTabWidget`; FreeCAD’s `ToolBarAreaWidget::saveState()` also only iterates `QToolBar` children. See [ToolBarAreaWidget.cpp](/Users/nguyenthuong/Repository/FreeCAD/src/Gui/ToolBarAreaWidget.cpp:121).
-- **HIGH:** `hideStockChrome()` needs a concrete, safe list of toolbar names. `ToolBarManager::toolBars()` is protected, and a blanket `findChildren<QToolBar*>()` must exclude the ribbon wrapper.
-- **MEDIUM:** `menuBar()->show()` on restore may clobber prior user/fullscreen/platform state, especially on macOS native menu bars.
-- **MEDIUM:** The overflow “right edge” placement is under-specified for a `QTabWidget`; use `QTabWidget::setCornerWidget()` or a wrapper layout.
-- **MEDIUM:** The proposed save/restore headless test can trivially pass if the widget is pre-created; it must assert restored area/order/state, not merely object existence.
+- **HIGH:** Task 1/2 test language says "construct or reuse a `QMainWindow`," but production `mountRibbon()` uses `Gui::getMainWindow()`. A generic `QMainWindow` does not set FreeCAD's `MainWindow` instance, so tests against it do not validate the production seam — they can pass while the real path is broken. Tests must construct/use `Gui::MainWindow`.
+- **MEDIUM:** `hideStockChrome()` must explicitly exclude `Fw_RibbonToolBar`; a broad `ForceHidden` pass could hide the ribbon it just mounted.
+- **MEDIUM:** The "More commands…" menu reuses existing `QAction`s, but `Command::getAction()` can be null until `initAction()`/`addTo()` has run; the action creation/ownership path must be specified.
+- **MEDIUM:** If `unmountRibbon()` runs before app shutdown, the wrapper is absent when `QMainWindow::saveState()` is written — true-restart persistence needs a defined save point.
 
 **Suggestions**
-- Wrap the ribbon in a real `Gui::ToolBar`/`QToolBar` with stable objectName, add the `QTabWidget` via `addWidget()`, and mount it with `Gui::getMainWindow()->addToolBar(Qt::TopToolBarArea, ribbonToolBar)`. That gives Qt a real state participant.
-- Persist custom tab/panel state separately if “tab layout” means selected tab, panel order, or collapsed state; `QMainWindow::saveState()` only handles docks/toolbars.
-- Snapshot menu bar visibility/native-menu setting and restore exactly that snapshot.
-- Make mount/unmount idempotent: no duplicate ribbon on reactivation, and teardown removes or hides the wrapper predictably.
-- Add explicit macOS manual validation for menu bar hiding/restoring.
+- Require Plan 03 tests to use a real `Gui::MainWindow` plus the fixed GUI bootstrap.
+- Snapshot stock toolbar names before adding the ribbon, or explicitly filter out `Fw_RibbonToolBar`.
+- Build overflow entries via `cmd->addTo(menu)` (or `initAction()` then safe `getAction()`).
 
-**Risk Assessment**
-**HIGH.** As written, this plan can fail SC1 and SC5 even if all tests pass, because the integration seam and persistence model are wrong.
+**Risk Assessment: HIGH** — production mount concept is correct, but the current test plan can miss or fail the actual FreeCAD main-window path.
 
 ## Plan 02-04
 
 **Summary**
-The event-driven edit-signal approach is the right architecture and avoids Sketcher linkage. The switch/restore state machine needs tightening, and the “pure function returns Sketch index” API is not coherent unless it has access to tab mapping.
+The strongest revised plan. Addresses the restore-tab bug with an explicit `contextActive_` guard, uses the correct edit signals, avoids a Sketcher link dependency, and adds a dangling-pointer guard.
 
 **Strengths**
-- Uses `signalInEdit`/`signalResetEdit`, which is better than polling `Control::activeDialog()`.
-- Avoids compile/link dependency on Sketcher by using the view-provider type-name string.
-- Plans scoped signal connections and teardown, which is necessary for workbench switching.
-- Tests context wins and restore behavior, not just construction.
+- Explicitly prevents repeated `signalInEdit` from overwriting the original tab (the concern-7 fix).
+- Uses `signalInEdit`/`signalResetEdit`, which exist on `Gui::Application`.
+- Uses the real type-name contract `SketcherGui::ViewProviderSketch`.
+- Holds the ribbon via `QPointer`.
+- Tests the pure state machine in GTest without widgets.
 
 **Concerns**
-- **HIGH:** Repeated sketch-enter signals can overwrite `previousTab_` with the Sketch tab, causing reset to restore to Sketch instead of the original tab unless the context tracks “already context-switched.”
-- **MEDIUM:** `resolveTabForEnter(vpTypeName, currentIndex)` cannot honestly return the Sketch tab index without either hardcoding tab order or querying the ribbon. Hardcoding index `1` is brittle.
-- **MEDIUM:** A raw non-owning `FwRibbon*` is unsafe if signals fire after teardown; use `QPointer<FwRibbon>` or guarantee disconnect-before-destroy.
-- **MEDIUM:** Reset should be a no-op unless the active context switch was caused by a sketch enter; otherwise any reset signal can force an old stale tab.
-- **LOW:** Exact string `"SketcherGui::ViewProviderSketch"` is acceptable for v1, but should be live-validated because type-name contracts can move across upstream changes.
+- **MEDIUM:** Signal-connected tests still depend on the corrected `Gui::Application` bootstrap (shared with Plan 01).
+- **LOW:** Proving `previousIndex_` is unchanged after a nested enter needs a read-only test accessor or an action result carrying the index.
+- **LOW:** Exact type-name matching is fine for v1, but derived/custom sketch view providers would not match.
 
 **Suggestions**
-- Model the state machine explicitly: `bool contextActive_`, `int previousIndex_`, ignore nested sketch enters while active, clear state on reset.
-- Make the pure function return an action enum (`SwitchToSketch`, `NoOp`, `RestorePrevious`) and let the ribbon-bound layer resolve tab names to indices.
-- Use `QPointer<FwRibbon>` and guard all signal callbacks.
-- Add a live/manual test that enters and exits a real sketch, because pure tests cannot prove the type-name literal is correct in the running app.
+- Store two scoped signal connections explicitly and disconnect both on teardown.
+- Add a tiny read-only test accessor for `previousIndex_`/`contextActive_`.
+- Keep the live manual validation of the sketch type-name literal.
 
-**Risk Assessment**
-**MEDIUM.** The architecture is right, but the restore logic has enough edge cases to break RIBBON-02 unless the state machine is made explicit.
+**Risk Assessment: LOW-MEDIUM** — state machine and signal seam are sound; remaining risk is mostly shared bootstrap/lifecycle setup.
 
----
+## Cycle-1 Resolution Table
+
+| # | Cycle-1 HIGH | Status | Justification |
+|---|---|---|---|
+| 1 | Headless harness can't construct QWidgets | **RESOLVED** | Widget construction moved to a `QTEST_MAIN`/`setup_qt_test` target with `QT_QPA_PLATFORM=offscreen`; GTest kept widget-free. |
+| 2 | Command IDs need module GUI init | **PARTIALLY RESOLVED** | Plans now import owning GUI modules, but the bootstrap never creates `Gui::Application::Instance`, which those imports require (`AppPartDesignGui.cpp:103-105`); `MeasureGui` also missing for Evaluate IDs. |
+| 3 | Mount-seam API mismatch | **RESOLVED** | Plan 03 no longer uses `toolBarAreaWidget()` as a top-area lookup; mounts via `addToolBar(Qt::TopToolBarArea, wrapper)`; explicit `grep -c 'toolBarAreaWidget' == 0` gate. |
+| 4 | Persistence model wrong | **RESOLVED** | Plan 03 wraps the ribbon in a real `QToolBar` for `QMainWindow` state and persists tab selection separately via `ParameterGrp`; round-trip tests assert restored AREA + tab index, not mere existence. |
+| 5 | Auto-derive live source undefined | **RESOLVED** | Plan 02 uses public `Workbench::getToolbarItems()` value data, not the consumed/deleted `setupToolBars()` tree; `"Separator"` sentinel handled. |
+| 6 | Spike gate vs implementation mismatch | **PARTIALLY RESOLVED** | The gate now splits A (code-demonstrated primitives) from B (reachable-only); but context-switch (item 5) is "reachable on native" and there is still no live enter-sketch/restore proof, so the original gate mismatch is reduced, not fully closed. |
+| 7 | Restore-tab state-machine edge case | **RESOLVED** | Plan 04 adds `contextActive_`, no-ops nested sketch enters, no-ops stray resets, returns a `TabAction` enum, and adds the concern-7 regression test. |
+| 8 | Flyout verification metadata-only | **RESOLVED** | Plan 02 requires inspecting the actual `QToolButton` from `addTo()` for `popupMode()==MenuButtonPopup` and `menu()->actions().size()>1`. |
+
+**Resolution tally:** 6 fully RESOLVED, 2 PARTIALLY RESOLVED (#2, #6).
+
+## Remaining / New HIGH Concerns (this cycle)
+
+1. **HIGH — Incomplete GUI test bootstrap (Plan 02-01, extends concern #2).** The bootstrap as specified (`tests::initApplication()` App-only + a `QApplication`) does not create `Gui::Application::Instance`. Importing `PartDesignGui`/`SketcherGui` requires that singleton — without it the import raises `ImportError` and registers zero commands, so every command-ID resolution test silently asserts nothing. The bootstrap must construct/init a `Gui::Application` singleton before the module imports.
+2. **HIGH — Evaluate-tab commands need MeasureGui (Plan 02-02).** `Std_Measure` and `Std_MassProperties` are registered by `src/Mod/Measure/Gui/Command.cpp`, not by PartDesignGui/SketcherGui. The bootstrap imports neither MeasureGui nor the other owning modules for the Evaluate row IDs, so the mandated per-row resolution test fails (or, at runtime, those buttons silently vanish via D-08).
+3. **HIGH — Plan 03 mount tests use a generic `QMainWindow` (Plan 02-03).** Production `mountRibbon()` calls `Gui::getMainWindow()`; a test built against a plain `QMainWindow` does not exercise the FreeCAD `Gui::MainWindow` instance and can pass while the production seam is broken. Tests must use a real `Gui::MainWindow`.
+4. **HIGH — Spike gate still reachability-only, not a live restore proof (Plan 02-01, concern #6 remainder).** The gate can PASS on "context switch reachable" without a live enter-sketch → Sketch-tab → exit → restore demonstration, so it does not fully de-risk the headline RIBBON-02 behavior at the gate. (Partial closure of cycle-1 concern #6.)
+
+## Orchestrator Verification
+
+The orchestrator independently re-verified the load-bearing NEW HIGH findings against source in this checkout:
+
+- **GUI singleton guard (NEW HIGH 1):** CONFIRMED — `src/Mod/PartDesign/Gui/AppPartDesignGui.cpp:103-105` does `if (!Gui::Application::Instance) { PyErr_SetString(PyExc_ImportError, "Cannot load Gui module in console application."); return nullptr; }`. The Plan 02-01 bootstrap never creates that singleton.
+- **MeasureGui registration (NEW HIGH 2):** CONFIRMED — `Std_Measure` (`Command("Std_Measure")`, `Command.cpp:48`) and `Std_MassProperties` (`Command("Std_MassProperties")`, `Command.cpp:94`) live in `src/Mod/Measure/Gui/Command.cpp`. Neither is in the Plan 02-01 import list (`PartDesignGui, SketcherGui`).
+- **Mount seam fix (concern #3):** CONFIRMED resolved — Plan 03 mounts via `addToolBar(Qt::TopToolBarArea, wrapper)` and adds a `grep -c 'toolBarAreaWidget' == 0` acceptance gate.
+- **Persistence fix (concern #4):** CONFIRMED resolved — real `QToolBar` wrapper `Fw_RibbonToolBar` + separate `ParameterGrp` tab key; tests assert `toolBarArea(...)==Qt::TopToolBarArea` and `currentIndex()==2`.
+- **State-machine fix (concern #7):** CONFIRMED resolved — `decideOnEnter`/`decideOnReset` with `contextActive_` guard and an explicit nested-enter regression test.
 
 ## Consensus Summary
 
-Only one external reviewer (Codex) was invoked for this cycle, so "consensus" reflects a single independent review cross-checked against the codebase by the orchestrator. Where claims were verifiable, the orchestrator confirmed them against source.
+Single external reviewer (Codex) this cycle, cross-checked against source by the orchestrator. Cycle 2 made strong progress: **6 of 8** cycle-1 HIGH concerns are fully resolved (mount seam, persistence model, auto-derive source, state machine, flyout verification, QWidget harness split). The revisions are real mechanism changes, not citations.
+
+The phase is **not yet HIGH-clean**. Four HIGH concerns remain, three of them clustered on the same root cause: **the GUI test bootstrap is underspecified.** It does not create `Gui::Application::Instance` (so module imports fail), it omits `MeasureGui` (so the Evaluate tab does not resolve), and the Plan 03 mount tests use a generic `QMainWindow` instead of `Gui::MainWindow`. The fourth is the residual spike-gate looseness (reachability instead of a live restore proof). All four are concrete and fixable in a focused bootstrap/test-harness revision plus a tightened gate; none require an architecture change.
 
 ### Agreed Strengths
-
-- Wave sequencing and the native-first → spike-gate → full-build progression are architecturally sound.
-- Strict additive `src/Gui/FreeWorks/` discipline with no `MainWindow.cpp` edits preserves upstream-merge safety.
-- Driving the ribbon from the existing command registry via `Command::addTo()` correctly avoids a duplicated command backend (RIBBON-01 SC2).
-- The curated declarative `FwRibbonMap` cleanly separates curation data from rendering and keeps App/Gui separation intact.
-- The edit-signal (`signalInEdit`/`signalResetEdit`) approach for context switching is the correct event-driven realization of D-09 (vs. polling `Control::activeDialog()`).
+- The mount/persistence rewrite (real `QToolBar` + `addToolBar(Qt::TopToolBarArea)` + separate `ParameterGrp` tab state) is the correct Qt/FreeCAD seam.
+- The auto-derive source switch to `Workbench::getToolbarItems()` is correct and live.
+- The Plan 04 `contextActive_` state machine + `QPointer` guard cleanly closes the cycle-1 restore bug.
+- The flyout test now inspects the real `QToolButton`/menu instead of metadata.
 
 ### Agreed Concerns (highest priority)
-
-The following HIGH concerns were verified against the codebase and are load-bearing for the phase:
-
-1. **Headless test harness cannot construct QWidgets (Plan 02-01).** `tests::initApplication()` initializes only `App::Application` (confirmed: `tests/src/App/InitApplication.h`). The existing `FwWorkbench.cpp` test only constructs a QObject `Workbench`, never a QWidget. Constructing `FwRibbon : QTabWidget` requires a live `QApplication`. As written, every Plan 02-01/02/03 automated test that builds the ribbon will not compile/run, or will give false confidence.
-2. **Command IDs won't resolve without module GUI init (Plan 02-01/02-02).** `PartDesign_*` / `Sketcher_*` commands are registered by their GUI modules, not by linking `FreeCADGui`. The per-row resolution test is the entire typo guard for the pinned IDs — if modules aren't loaded, it asserts nothing useful.
-3. **Mount seam API mismatch (Plan 02-03).** `ToolBarManager::toolBarAreaWidget(QWidget*)` looks up the area containing an existing widget — it is NOT an enum lookup for `TopToolBarArea` (confirmed: `ToolBarManager.h:181`). The planned `key_links` mount call does not exist as described.
-4. **Persistence model is wrong (Plan 02-03).** A plain `QTabWidget` child does not participate in `QMainWindow::saveState()`; FreeCAD's `ToolBarAreaWidget::saveState()` iterates only `QToolBar` children (confirmed: `ToolBarAreaWidget.cpp:121`). D-14/SC5 (layout persists across restart) can fail even with all headless tests green. Fix: wrap the ribbon in a real `QToolBar` mounted via `addToolBar(Qt::TopToolBarArea, ...)`, and/or persist tab/panel state separately.
-5. **Auto-derive source undefined (Plan 02-02/02-03).** The workbench `ToolBarItem` tree from `setupToolBars()` is consumed/deleted by `Workbench::activate()`; the plans call `buildAutoDerived(...)` without defining a valid, live source for the tree.
-6. **Spike gate vs. implementation mismatch (Plan 02-01).** The D-03 human checklist requires top-area mounting, 3 tabs, context switching, and live sketch restore — but Tasks 1–2 only build a minimal unmounted `QTabWidget`. The gate risks becoming subjective theater unless it is scoped to primitives the spike code actually builds (or a throwaway mounted harness is specified).
-7. **Restore-tab state machine edge case (Plan 02-04).** Repeated `signalInEdit` while already in a sketch can overwrite `previousTab_` with the Sketch index, so reset restores to Sketch instead of the original tab. Needs an explicit `contextActive_` guard.
-8. **Flyout verification is metadata-only (Plan 02-02).** Asserting `getGroupCommands()` count does not prove a working `MenuButtonPopup` split-button. Test must inspect the actual `QToolButton`/menu produced by `addTo()`.
+1. GUI bootstrap must create `Gui::Application::Instance` before importing GUI modules (else commands never register).
+2. Evaluate-tab IDs (`Std_Measure`, `Std_MassProperties`) need `MeasureGui` in the bootstrap import list.
+3. Plan 03 mount tests must use `Gui::MainWindow`, not a generic `QMainWindow`.
+4. Spike gate should require a live sketch enter/restore proof, not just "reachable."
 
 ### Divergent Views
-
-None — single reviewer this cycle. No reviewer-vs-reviewer disagreements to adjudicate. The LOW item (type-name literal stability, Plan 02-04) is noted but not blocking.
+None — single reviewer this cycle.
 
 ---
 
 ## Action Routing
 
-To incorporate this feedback into the plans:
+To incorporate this feedback:
 
 ```
 /gsd-plan-phase 2 --reviews
 ```
 
-Priority fixes before execution: resolve the test-harness GUI bootstrap + module-load gap (concerns 1–2), correct the mount/persistence seam in Plan 02-03 (concerns 3–4), define the auto-derive source (concern 5), and tighten the context state machine in Plan 02-04 (concern 7).
+Priority fixes before execution: (1) specify a complete GUI test bootstrap that creates `Gui::Application::Instance` and imports all owning GUI modules including `MeasureGui` (closes NEW HIGH 1 + 2 and cycle-1 concern #2); (2) require Plan 03 tests to use `Gui::MainWindow` (NEW HIGH 3); (3) tighten the Plan 01 spike gate to require a live sketch enter/restore demonstration (NEW HIGH 4 / cycle-1 concern #6 remainder).
