@@ -8,6 +8,7 @@
 !/.gitattributes
 !/.github/
 !/.gitignore
+!/.planning/
 !/.gitmodules
 !/.packit.yaml
 !/.pre-commit-config.yaml
