@@ -56,14 +56,17 @@ void FwNavigationDefault::applyDefault()
 
 #if defined(__APPLE__)
     // macOS lacks a default 3-button mouse, and the reference-CAD style has no
-    // built-in middle-button emulation. Keep the same NavigationStyle default
-    // above (so button semantics are identical to Windows/Linux) and additionally
-    // select the modifier-emulated-MMB substitute profile. This is recorded in a
-    // FreeWorks-namespaced marker so the substitute is observable/round-trippable
-    // and so MACOS_NAV_PROFILE.md is the single source of truth for the mapping.
-    // The native-trackpad alternative ("Gui::GestureNavigationStyle") remains one
-    // click away via the standard navigation-style selector. Only set the marker
-    // when unset, mirroring the no-clobber discipline above.
+    // built-in middle-button emulation. The NavigationStyle default written above
+    // keeps button SEMANTICS identical to Windows/Linux, but on a trackpad-only
+    // Mac the MMB chords are not yet reachable.
+    //
+    // IMPORTANT: this only RECORDS the chosen substitute-profile intent in a
+    // FreeWorks-namespaced marker key; NOTHING in this phase reads FwMacNavProfile,
+    // so it does not yet change navigation behavior. The actual modifier-emulated-
+    // MMB binding (and/or offering Gui::GestureNavigationStyle) lands in a later
+    // phase that consumes this key. MACOS_NAV_PROFILE.md is the single source of
+    // truth for the intended chord mapping. Only set the marker when unset,
+    // mirroring the no-clobber discipline above.
     const std::string macProfile = hGrp->GetASCII("FwMacNavProfile", "");
     if (macProfile.empty()) {
         // Values: "ModifierEmulatedMMB" (default) | "GestureNavigationStyle".
