@@ -31,6 +31,16 @@ constexpr const char* kNavStyleKey = "NavigationStyle";
 constexpr const char* kSolidWorksNavStyle = "Gui::SolidWorksNavigationStyle";
 constexpr const char* kViewPrefGroup = "User parameter:BaseApp/Preferences/View";
 
+// setupDockWindows() is protected on Gui::Workbench (and on FwWorkbench). Rather
+// than widen production visibility, expose it for the test via a subclass that
+// re-publishes the protected member with a using-declaration — the project's
+// documented convention for testing protected members.
+class FwWorkbenchAccessor: public FreeWorksGui::FwWorkbench
+{
+public:
+    using FreeWorksGui::FwWorkbench::setupDockWindows;  // expose for test
+};
+
 class FwWorkbenchTest: public ::testing::Test
 {
 protected:
@@ -76,7 +86,8 @@ TEST_F(FwWorkbenchTest, registersAndExposesFwDockNames)
     EXPECT_TRUE(type.isDerivedFrom(Gui::StdWorkbench::getClassTypeId()));
 
     // Instantiable directly (headless: no view, no MainWindow interaction).
-    FreeWorksGui::FwWorkbench workbench;
+    // Use the accessor subclass to reach the protected setupDockWindows().
+    FwWorkbenchAccessor workbench;
 
     // setupDockWindows() registers the permanent Fw_* dock names.
     std::unique_ptr<Gui::DockWindowItems> docks(workbench.setupDockWindows());
