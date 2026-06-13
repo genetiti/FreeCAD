@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 Plan 02-01 complete (spike gate — native committed)
-last_updated: "2026-06-13T00:00:00.000Z"
-last_activity: 2026-06-13 -- Plan 02-01 closed; native ribbon engine committed (Wave 1 done)
+stopped_at: Phase 2 Plan 02-02 complete (curated map + full FwRibbon build — RIBBON-01 slice)
+last_updated: "2026-06-13T23:53:48.000Z"
+last_activity: 2026-06-13 -- Plan 02-02 closed; curated 3-tab ribbon + flyouts + auto-derive (Wave 2 done)
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 14
+  completed_plans: 6
+  percent: 16
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 02 (commandmanager-ribbon) — EXECUTING
-Plan: 2 of 4 (Wave 2 next — 02-02 curated map + full FwRibbon build)
-Status: Wave 1 complete (02-01) — native-vs-SARibbon spike resolved: **native committed**
-Last activity: 2026-06-13 -- Plan 02-01 closed; downstream plans build on native Qt engine
+Plan: 3 of 4 (Wave 3 next — 02-03 mount/chrome/persistence)
+Status: Wave 2 complete (02-02) — curated 3-tab FwRibbon, working flyout split-buttons, D-07 auto-derive; RIBBON-01 slice fires real commands
+Last activity: 2026-06-13 -- Plan 02-02 closed; buildFromCuratedMap/buildAutoDerived/setCurrentTab ready for Plans 03/04
 
-Progress: [██░░░░░░░░] 25% (1 of 4 plans)
+Progress: [█████░░░░░] 50% (2 of 4 plans)
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Progress: [██░░░░░░░░] 25% (1 of 4 plans)
 | Phase 01 P02 | 2 | 3 tasks | 5 files |
 | Phase 01 P03 | 8 | 3 tasks | 5 files |
 | Phase 01 P04 | 6 | 4 tasks | 6 files |
+| Phase 02 P01 | — | 3 tasks | 9 files |
+| Phase 02 P02 | — | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -75,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [01-03]: SHELL-02 covered via headless GTest (FwWorkbench reg + Fw_* docks + NavigationStyle default), workflow_call .FCStd-compat gate (HEADLESS_OK, no App-layer GUI leak), and tri-OS launch checklist
 - [Phase ?]: [01-03]: Task 3 blocking human-verify approved; live tri-OS GUI launch + CI-green confirmation deferred to CI matrix + TRIOS_LAUNCH_CHECKLIST.md sign-off per plan verification contract (no build tree/hardware/CI in env)
 - [Phase ?]: [01-04]: Task 4 blocking human-verify approved; provenance guard, SolidWorks-leak grep, and pinned-commit upstream-sync drill (two // SW-FORK HOOK touches) independently re-verified and wired into CI via sub_fwForkGuards.yml
+- [Phase 02]: [02-02]: Curated ribbon is a compile-time C++ table (FwRibbonRow {tab,panel,commandId} + std::span accessor) — 56 source-verified core-loop IDs placed as-is, no FreeCAD-only extras (D-08 strict); kKnownGaps intentionally empty so the per-row test stays a true typo guard
+- [Phase 02]: [02-02]: Auto-derive (D-07) consumes the LIVE value-type Workbench::getToolbarItems() list (NOT the transient setupToolBars() tree activate() deletes); literal "Separator" is the separator sentinel (REVIEW concern 5)
+- [Phase 02]: [02-02]: Flyout verified by inspecting the real QToolButton (MenuButtonPopup + menu>1 action), not getGroupCommands() metadata (REVIEW concern 8); unique Fw_RibbonPanel_<Tab>_<Panel> objectNames for D-14 persistence; build API buildFromCuratedMap/buildAutoDerived/setCurrentTab consumed by Plans 03/04
 
 ### Pending Todos
 
@@ -99,6 +104,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07T16:36:18.761Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-commandmanager-ribbon/02-UI-SPEC.md
+Last session: 2026-06-13T23:53:48.000Z
+Stopped at: Completed 02-02-PLAN.md (curated map + full FwRibbon build — RIBBON-01 slice)
+Resume file: .planning/phases/02-commandmanager-ribbon/02-03-PLAN.md

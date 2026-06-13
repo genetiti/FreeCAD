@@ -64,7 +64,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Curated declarative map + full FwRibbon build (tabs, large labeled buttons, flyouts, auto-derive) (RIBBON-01)
+- [x] 02-02-PLAN.md — Curated declarative map + full FwRibbon build (tabs, large labeled buttons, flyouts, auto-derive) (RIBBON-01)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
