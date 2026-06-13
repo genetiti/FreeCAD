@@ -21,6 +21,7 @@ set(FreeWorks_CPP_SRCS
     FwNavigationDefault.cpp
     FwWorkbench.cpp
     FwRibbon.cpp
+    FwRibbonMap.cpp
 )
 
 set(FreeWorks_HPP_SRCS
@@ -30,6 +31,7 @@ set(FreeWorks_HPP_SRCS
     FwNavigationDefault.h
     FwWorkbench.h
     FwRibbon.h
+    FwRibbonMap.h
 )
 
 set(FreeWorks_SRCS

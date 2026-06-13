@@ -2,10 +2,15 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <set>
 #include <string>
+#include <string_view>
 
 #include <Gui/Application.h>
 #include <Gui/Command.h>
+
+#include <src/Gui/FreeWorks/FwRibbonMap.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -26,6 +31,13 @@ constexpr const char* kStdMeasure = "Std_Measure";
 // A deliberately non-existent ID — the D-08 omit-missing contract requires
 // getCommandByName() to return nullptr (not crash) for it.
 constexpr const char* kBogus = "Fw_DoesNotExist";
+
+// Allow-list of curated command IDs that are KNOWN to have no FreeCAD command and
+// are accepted as unresolved. It is INTENTIONALLY EMPTY (REVIEW MEDIUM): a
+// non-empty allow-list would swallow a typo and defeat the per-row resolution
+// guard. If a curated row genuinely has no FreeCAD equivalent, the row is removed
+// from FwRibbonMap and recorded there as a `// gap:` comment — never parked here.
+constexpr std::array<std::string_view, 0> kKnownGaps = {};
 
 class FwRibbonResolutionTest: public ::testing::Test
 {
@@ -78,4 +90,57 @@ TEST_F(FwRibbonResolutionTest, groupCommandResolves)
 TEST_F(FwRibbonResolutionTest, bogusIdResolvesToNull)
 {
     EXPECT_EQ(nullptr, resolve(kBogus));
+}
+
+// THE typo guard for the pinned curated map (Task 1 done criteria). Iterate EVERY
+// row of FwRibbonMap and assert its commandId resolves non-null. An unresolved row
+// is a FAILURE (not a silent skip): D-08 silent-omit is RUNTIME robustness, not a
+// license for the test to pass on a misspelled/dropped ID. This single test also
+// proves the bootstrap imported every owning module — the Evaluate rows
+// (Std_Measure/Std_MassProperties via MeasureGui, Part_CheckGeometry via PartGui,
+// Materials_Inspect* via MatGui) only resolve if those imports ran
+// (REVIEW cycle-2 NEW HIGH 2).
+TEST_F(FwRibbonResolutionTest, everyCuratedRowResolves)
+{
+    std::set<std::string_view> gaps(kKnownGaps.begin(), kKnownGaps.end());
+    // The allow-list MUST stay empty — a non-empty one would swallow typos.
+    EXPECT_TRUE(gaps.empty()) << "kKnownGaps must be empty (REVIEW MEDIUM): record "
+                                 "missing commands as // gap: in FwRibbonMap, not here.";
+
+    bool sawFeatures = false;
+    bool sawSketch = false;
+    bool sawEvaluate = false;
+    bool sawComp = false;
+
+    for (const FreeWorksGui::FwRibbonRow& row : FreeWorksGui::FwRibbonMap::rows()) {
+        ASSERT_NE(nullptr, row.tab);
+        ASSERT_NE(nullptr, row.panel);
+        ASSERT_NE(nullptr, row.commandId);
+
+        const std::string_view tab(row.tab);
+        sawFeatures = sawFeatures || (tab == "Features");
+        sawSketch = sawSketch || (tab == "Sketch");
+        sawEvaluate = sawEvaluate || (tab == "Evaluate");
+
+        const std::string_view id(row.commandId);
+        if (id.find("_Comp") != std::string_view::npos) {
+            sawComp = true;
+        }
+
+        if (gaps.count(id) != 0) {
+            continue;  // never reached while kKnownGaps is empty.
+        }
+
+        EXPECT_NE(nullptr, resolve(row.commandId))
+            << "curated row [" << row.tab << " / " << row.panel << "] command id '"
+            << row.commandId << "' did not resolve — typo or a missing owning-module "
+                                "import in the GUI test bootstrap.";
+    }
+
+    // The three core-loop tabs must all be present in the curated table.
+    EXPECT_TRUE(sawFeatures);
+    EXPECT_TRUE(sawSketch);
+    EXPECT_TRUE(sawEvaluate);
+    // At least one flyout (*_Comp*) group id must be present for a downstream split-button.
+    EXPECT_TRUE(sawComp);
 }
