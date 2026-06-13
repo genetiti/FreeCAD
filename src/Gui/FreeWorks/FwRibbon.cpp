@@ -27,7 +27,10 @@
 // Include the Qt widget headers this TU uses unconditionally. Do NOT rely on the
 // PCH (which transitively pulls in Gui/QtAll.h) to supply them: a non-PCH build
 // path, or a future trimming of QtAll.h, would otherwise break this TU (WR-04).
+#include <QLabel>
+#include <QList>
 #include <QSize>
+#include <QString>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -37,12 +40,32 @@
 #include <Gui/Command.h>
 
 #include "FwRibbon.h"
+#include "FwRibbonMap.h"
 
 using namespace FreeWorksGui;
 
+namespace
+{
+// FreeCAD's toolbar tree uses the literal string "Separator" as the separator
+// sentinel inside a toolbar group (Workbench.cpp), NOT an empty command id. The
+// auto-derive walk must treat it as a separator, not a (failed) command lookup.
+constexpr const char* kSeparatorSentinel = "Separator";
+
+// objectName prefix for every persisted panel QToolBar (Pitfall 4 / D-14 prep):
+// QMainWindow::saveState()/restoreState() key on objectName, so each panel needs a
+// stable, unique one of the form Fw_RibbonPanel_<Tab>_<Panel>.
+QString panelObjectName(const QString& tabName, const QString& panelName)
+{
+    return QStringLiteral("Fw_RibbonPanel_%1_%2").arg(tabName, panelName);
+}
+}  // namespace
+
 FwRibbon::FwRibbon(QWidget* parent)
     : QTabWidget(parent)
-{}
+{
+    // Unique objectName for QMainWindow state persistence (Pitfall 4 / D-14 prep).
+    setObjectName(QStringLiteral("Fw_Ribbon"));
+}
 
 int FwRibbon::tabCount() const
 {
@@ -82,4 +105,167 @@ void FwRibbon::addTabFromCommandIds(const QString& tabName, const std::vector<st
     }
 
     addTab(page, tabName);
+}
+
+QWidget* FwRibbon::tabPageForName(const QString& tabName)
+{
+    for (int i = 0; i < count(); ++i) {
+        if (tabText(i) == tabName) {
+            return widget(i);
+        }
+    }
+
+    // A fresh tab page: a vertical layout that stacks its panels left-to-right via
+    // an inner row, with a trailing stretch so panels hug the top-left (ribbon
+    // body height is owned by the panels' fixed icon metric, not the page).
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addStretch();
+    addTab(page, tabName);
+    return page;
+}
+
+QToolBar*
+FwRibbon::panelForName(QWidget* page, const QString& tabName, const QString& panelName)
+{
+    const QString objName = panelObjectName(tabName, panelName);
+
+    // Reuse an existing panel with this title on this page so repeated rows of the
+    // same (tab,panel) accumulate buttons into one QToolBar.
+    const QList<QToolBar*> existing = page->findChildren<QToolBar*>();
+    for (QToolBar* bar : existing) {
+        if (bar->objectName() == objName) {
+            return bar;
+        }
+    }
+
+    auto* panel = new QToolBar(panelName, page);
+    // UI-SPEC § Spacing/Typography: large 32px icon over a (word-wrapped, 2-line,
+    // never-ellipsis) label. Color comes from the active QPalette/QStyle ONLY —
+    // no inline style-sheet, no hard-coded hex; Phase 7 owns theming (UI-SPEC § Color).
+    panel->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    panel->setIconSize(QSize(32, 32));
+    panel->setMovable(false);
+    panel->setFloatable(false);
+    // Pitfall 4 / D-14: unique, stable objectName so saveState()/restoreState() key.
+    panel->setObjectName(objName);
+
+    // Insert just before the trailing stretch so panels pack left-to-right.
+    auto* layout = qobject_cast<QVBoxLayout*>(page->layout());
+    if (layout != nullptr) {
+        layout->insertWidget(layout->count() - 1, panel);
+    }
+    return panel;
+}
+
+void FwRibbon::clearTabs()
+{
+    while (count() > 0) {
+        QWidget* page = widget(0);
+        removeTab(0);
+        delete page;
+    }
+}
+
+void FwRibbon::showEmptyState()
+{
+    clearTabs();
+
+    // UI-SPEC § Copywriting empty-state copy. Should not be reached given the
+    // auto-derive fallback, but a build that derived nothing must not be a blank tab.
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    auto* heading = new QLabel(tr("No commands available for this workbench"), page);
+    heading->setAlignment(Qt::AlignCenter);
+    heading->setWordWrap(true);
+    auto* body = new QLabel(
+        tr("Switch to a modeling workbench, or use the menu/keyboard shortcuts to "
+           "run commands."),
+        page);
+    body->setAlignment(Qt::AlignCenter);
+    body->setWordWrap(true);
+    layout->addStretch();
+    layout->addWidget(heading);
+    layout->addWidget(body);
+    layout->addStretch();
+    addTab(page, tr("Commands"));
+}
+
+void FwRibbon::buildFromCuratedMap()
+{
+    clearTabs();
+
+    Gui::CommandManager& manager = Gui::Application::Instance->commandManager();
+
+    // The rows are pre-ordered (Features -> Sketch -> Evaluate, panel + button order
+    // by first-seen); grouping by (tab,panel) via find-or-create preserves it.
+    for (const FwRibbonRow& row : FwRibbonMap::rows()) {
+        Gui::Command* cmd = manager.getCommandByName(row.commandId);
+        if (cmd == nullptr) {
+            // D-08 omit-missing: an unresolved curated id is silently skipped at
+            // runtime (the headless per-row test is what fails loudly on a typo).
+            continue;
+        }
+
+        QWidget* page = tabPageForName(QString::fromUtf8(row.tab));
+        QToolBar* panel =
+            panelForName(page, QString::fromUtf8(row.tab), QString::fromUtf8(row.panel));
+
+        // The single command -> button seam. A *_Comp* group command routes through
+        // the same addTo() and yields a native split-button (MenuButtonPopup) via
+        // ActionGroup::addTo() (Action.cpp) — no hand-rolled flyout here.
+        cmd->addTo(panel);
+    }
+
+    if (count() == 0) {
+        showEmptyState();
+    }
+}
+
+void FwRibbon::buildAutoDerived(
+    const std::list<std::pair<std::string, std::list<std::string>>>& toolbarGroups)
+{
+    clearTabs();
+
+    Gui::CommandManager& manager = Gui::Application::Instance->commandManager();
+
+    // All auto-derived panels live under one synthetic tab — an uncurated workbench
+    // has no curated tab taxonomy, so its toolbar groups become this tab's panels.
+    const QString tabName = QStringLiteral("Tools");
+
+    for (const auto& group : toolbarGroups) {
+        const QString panelName = QString::fromStdString(group.first);
+        QWidget* page = tabPageForName(tabName);
+        QToolBar* panel = panelForName(page, tabName, panelName);
+
+        for (const std::string& id : group.second) {
+            if (id == kSeparatorSentinel) {
+                // The "Separator" literal is a separator, NOT a command lookup
+                // (Workbench.cpp toolbar tree) — REVIEW concern 5.
+                panel->addSeparator();
+                continue;
+            }
+            Gui::Command* cmd = manager.getCommandByName(id.c_str());
+            if (cmd == nullptr) {
+                continue;  // D-08 omit-missing.
+            }
+            cmd->addTo(panel);
+        }
+    }
+
+    if (count() == 0) {
+        showEmptyState();
+    }
+}
+
+void FwRibbon::setCurrentTab(const QString& tabName)
+{
+    for (int i = 0; i < count(); ++i) {
+        if (tabText(i) == tabName) {
+            setCurrentIndex(i);
+            return;
+        }
+    }
+    // Absent tab -> no-op (Plan 04's switcher tolerates a context with no matching tab).
 }

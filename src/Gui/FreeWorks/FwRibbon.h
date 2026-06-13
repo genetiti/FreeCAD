@@ -26,11 +26,16 @@
 
 #include "PreCompiled.h"
 
+#include <list>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <QString>
 #include <QTabWidget>
+
+class QToolBar;
+class QWidget;
 
 namespace FreeWorksGui
 {
@@ -67,6 +72,54 @@ public:
      * with no hand-rolled QMenu.
      */
     void addTabFromCommandIds(const QString& tabName, const std::vector<std::string>& ids);
+
+    /**
+     * Build the full curated ribbon from FwRibbonMap (D-05/D-06): group the rows by
+     * tab (first-seen order) then by panel, producing one tab page per tab and one
+     * @c QToolBar panel per panel title, with one large icon-over-label button per
+     * resolved command ID via Gui::Command::addTo(). A *_Comp* group ID yields a
+     * native split-button (MenuButtonPopup) through the same addTo() path. Curated
+     * IDs that do not resolve are silently skipped (D-08 omit-missing). If the build
+     * yields zero tabs the empty-state widget is shown instead.
+     *
+     * Clears any previously built tabs first so it is safe to call more than once.
+     */
+    void buildFromCuratedMap();
+
+    /**
+     * Auto-derive a ribbon for an uncurated workbench (D-07) from the LIVE,
+     * value-type list returned by Gui::Workbench::getToolbarItems() — each pair is
+     * (toolbar/group name, command IDs). One panel @c QToolBar is created per group
+     * and one button per resolved command ID; the literal sentinel @c "Separator"
+     * (Workbench.cpp toolbar tree) inserts a panel separator instead of a button.
+     *
+     * This consumes the stable, copied getToolbarItems() value list — NOT the
+     * transient setupToolBars() ToolBarItem* tree, which Workbench::activate()
+     * consumes and deletes (REVIEW concern 5). All derived panels live under a
+     * single "Tools" tab. Yields the empty-state widget when no group is derivable.
+     */
+    void buildAutoDerived(
+        const std::list<std::pair<std::string, std::list<std::string>>>& toolbarGroups);
+
+    /**
+     * Select the tab whose label equals @p tabName (no-op if absent). Exposed now so
+     * Plan 04's context switcher can drive the active tab on enter/leave edit.
+     */
+    void setCurrentTab(const QString& tabName);
+
+private:
+    /// Find an existing tab page by its label, or create+append a new one.
+    QWidget* tabPageForName(const QString& tabName);
+
+    /// Find an existing panel QToolBar on @p page by panel title, or create one with
+    /// the UI-SPEC metrics and the unique objectName Fw_RibbonPanel_<Tab>_<Panel>.
+    QToolBar* panelForName(QWidget* page, const QString& tabName, const QString& panelName);
+
+    /// Remove all tab pages (so a rebuild starts clean).
+    void clearTabs();
+
+    /// Show the UI-SPEC empty-state page when a build produced no panels.
+    void showEmptyState();
 };
 
 }  // namespace FreeWorksGui
