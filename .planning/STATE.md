@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-06-07T18:34:25.816Z"
-last_activity: 2026-06-07 -- Phase 02 execution started
+stopped_at: Phase 2 Plan 02-01 complete (spike gate — native committed)
+last_updated: "2026-06-13T00:00:00.000Z"
+last_activity: 2026-06-13 -- Plan 02-01 closed; native ribbon engine committed (Wave 1 done)
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 14
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 02 (commandmanager-ribbon) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 02
-Last activity: 2026-06-07 -- Phase 02 execution started
+Plan: 2 of 4 (Wave 2 next — 02-02 curated map + full FwRibbon build)
+Status: Wave 1 complete (02-01) — native-vs-SARibbon spike resolved: **native committed**
+Last activity: 2026-06-13 -- Plan 02-01 closed; downstream plans build on native Qt engine
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25% (1 of 4 plans)
 
 ## Performance Metrics
 

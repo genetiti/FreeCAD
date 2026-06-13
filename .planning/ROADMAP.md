@@ -60,7 +60,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Wave 0 test scaffold + native ribbon spike gate (native-vs-SARibbon verdict) (RIBBON-01)
+- [x] 02-01-PLAN.md — Wave 0 test scaffold + native ribbon spike gate (native-vs-SARibbon verdict → **native committed**) (RIBBON-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
