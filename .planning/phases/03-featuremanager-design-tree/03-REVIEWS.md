@@ -2,9 +2,9 @@
 phase: 3
 reviewers: [codex]
 reviewed_at: 2026-06-14
-cycle: 2
+cycle: 3
 plans_reviewed: [03-01-PLAN.md, 03-02-PLAN.md, 03-03-PLAN.md]
-current_high: 2
+current_high: 0
 cycle_history:
   - cycle: 1
     current_high: 7
@@ -13,16 +13,132 @@ cycle_history:
     current_high: 2
     source_grounding: 11/11 new symbols verified, 0 MISSING
     prior_high_resolved: 5/7 (FULLY); 2/7 PARTIAL (kept open)
+  - cycle: 3
+    current_high: 0
+    source_grounding: 13/13 cited symbols verified, 0 MISSING
+    prior_high_resolved: 2/2 (FULLY) — HIGH-A + HIGH-B closed; convergence reached
 ---
 
 # Cross-AI Plan Review — Phase 3 (FeatureManager Design Tree)
 
-> **CYCLE 2 (convergence) is recorded at the TOP. Cycle 1 follows below for history.**
+> **CYCLE 3 (convergence, final) is recorded at the TOP. Cycle 2, then cycle 1 follow below for history.**
 
 ---
 
 # ═══════════════════════════════════════════════════════════
-# CYCLE 2 — Convergence Re-Review (2026-06-14)
+# CYCLE 3 — Convergence Re-Review (2026-06-14) — FINAL
+# ═══════════════════════════════════════════════════════════
+
+**Reviewer:** Codex CLI (codex-cli 0.139.0, default model), adversarial re-review of the REVISED 03-01/02/03 plans.
+**Mandate:** Verify whether EACH of the 2 surviving cycle-2 HIGH concerns (HIGH-A scoping topology, HIGH-B preselection restore) is GENUINELY closed in the revised plan TEXT (not wording-only), and surface any NEWLY-introduced HIGH concerns from the edits.
+**Method:** Independent source-grounding of every symbol the revision cites for the two fixes (topology + preselection APIs), then a Codex adversarial pass with the per-concern verdict mandate. Both passes converged on **0 HIGH remaining**.
+**Outcome:** Convergence reached. **2/2 surviving HIGHs FULLY RESOLVED; 0 newly-introduced HIGHs.**
+
+## Cycle-3 Source-Grounding Pass (symbols cited by the HIGH-A / HIGH-B fixes)
+
+Every existing symbol the revised fixes cite was checked against the real source. The fixes invented no new symbols — they bind to APIs that already exist.
+
+| # | Symbol / Claim (cited by the cycle-3 fixes) | Status | Actual location / note |
+|---|---|---|---|
+| 1 | `class DocumentItem: public QTreeWidgetItem` — the per-document TOP-LEVEL item | VERIFIED | Tree.h:348 (exact; also `: public Base::Persistence`) — confirms a Body is NOT a DocumentItem; HIGH-A premise correct |
+| 2 | `DocumentObjectItem::object()` PUBLIC accessor → `Gui::ViewProviderDocumentObject*` | VERIFIED | Tree.h:495 (exact); `ViewProviderDocumentObject::getObject()` exists at ViewProviderDocumentObject.h:98 — `object()->getObject()` is a real, public, link-free resolution path |
+| 3 | Body nested as a CHILD (not top-level): `parent->addChild(item)` | VERIFIED | Tree.cpp:4562 (exact) — the recursive-descent requirement is grounded |
+| 4 | `setHidden(...)` is the public-item hide API the BASE tree itself uses | VERIFIED | Tree.cpp:3458/3598/3986/4574/5794/6040/6070 — the exact mechanism `scopeToActiveBody()` reuses; e.g. :6070 `objitem->setHidden(!show && !objitem->object()->showInTree())` |
+| 5 | `invisibleRootItem()` is a usable descent root in this tree | VERIFIED | Tree.cpp:708 (`this->rootItem = invisibleRootItem();`) — the base tree already roots its walk here |
+| 6 | `addSelection(const SelectionObject&, bool clearPreSelect = true)` DEFAULTS true | VERIFIED | Selection.h:360 (exact) — drives HIGH-B: a naive re-add clobbers preselect |
+| 7 | `clearSelection(const char* pDocName=nullptr, bool clearPreSelect = true)` DEFAULTS true | VERIFIED | Selection.h:385 (exact) |
+| 8 | `setPreselect(pDocName, pObjectName, pSubName, x, y, z, signal)` restore API | VERIFIED | Selection.h:413 (full 7-arg signature confirmed; x/y/z default 0) — the restore is callable as the plan describes |
+| 9 | `rmvPreselect(bool signal=false)` (no-preselect-in-snapshot path) | VERIFIED | Selection.h:423 (exact) |
+| 10 | `getPreselection()` → `const SelectionChanges&` | VERIFIED | Selection.h:427 (exact) — the round-trip subject |
+| 11 | `getCompleteSelection()` → `std::vector<SelObj>` | VERIFIED | Selection.h:605 (exact) — the selection-snapshot subject |
+| 12 | `SelectionChanges` MsgType has `SetPreselect`/`RmvPreselect`/`ClrSelection`; public `pDocName`/`pObjectName`/`pSubName`/`x`/`y`/`z` fields | VERIFIED | Selection.h:84-86 (enum), :198-204 (public fields) — the snapshot can detect a live preselect via `Type == SetPreselect` and read the args `setPreselect` needs |
+| 13 | `SelectionChanges` is SAFE to copy by VALUE | VERIFIED (drives the new MEDIUM) | Selection.h:150-191 — its copy-ctor/copy-assign rebind `pDocName/pObjectName/pSubName` to the COPY's own `App::SubObjectT Object` member, so a by-value snapshot is pointer-safe; but storing only the raw `const char*` would dangle once the live preselection changes |
+
+### Cycle-3 Verification coverage
+- **Total symbols checked:** 13 (all cited by the two HIGH fixes); new-artifact names (`FwSelectionGuard`, `FwFeatureTree`, `scopeToActiveBody`, the QTEST/GTest files) confirmed not-yet-existing, excluded.
+- **VERIFIED:** 13 / 13
+- **MISSING:** 0
+- **AMBIGUOUS:** 0 — one grounded NUANCE (13) is a lifetime caveat, not an API gap: it surfaces the new MEDIUM (store `SelectionChanges` by value, not raw `const char*`), which the plan's wording already names "copy the current `SelectionChanges`" but should pin to by-value/owned storage at execution.
+- **UNCHECKABLE:** 0
+- **Independent confirmation:** the orchestrator's grounding pass agreed with Codex on BOTH closed HIGHs and on the single lifetime MEDIUM — no contradictions.
+
+---
+
+## Codex Cycle-3 Review
+
+**Summary**
+
+Both surviving cycle-2 HIGH concerns are genuinely closed in the revised plan text. The fixes are not just wording: they change the required implementation mechanism, the QTEST/GTest evidence, and the spike-gate acceptance rules.
+
+No newly introduced HIGH concerns found. There are a couple of implementation-precision risks, but they are MEDIUM/LOW because the revised plan already names the correct APIs and requires behavioral tests.
+
+### Per-Concern Verdict Table
+
+| Concern | Verdict | Closing plan text | Assessment |
+|---|---|---|---|
+| **HIGH-A: scoping topology** | **FULLY RESOLVED** | 03-01 must-have: `scopeToActiveBody()` "recurses from `invisibleRootItem()` … through the per-document `DocumentItem`," resolves `DocumentObjectItem::object()`, keeps `DocumentItem` visible, hides non-active `PartDesign::Body` subtrees with `setHidden(true)` (03-01:26, :170; 03-02:27). Task 1 QTEST requires a REAL document with TWO `PartDesign::Body` objects nested under the `DocumentItem`, activation of one Body, and assertions that the non-active Body is hidden while the active Body + its Origin are visible/first (03-01:131, :143-144). Task 3 says item 2 can PASS only with this real two-Body QTEST or a live demo, NOT synthetic top-level items (03-01:216, :237). | Closes the real topology error. The plan explicitly rejects `topLevelItem(i)` as Body discovery and rejects synthetic top-level tests. The test now proves the real `DocumentItem`→`Body` tree path. |
+| **HIGH-B: preselection restore** | **FULLY RESOLVED** | 03-03 must-have: `FwSelectionGuard` restores preselection explicitly BECAUSE `clearSelection()` and `addSelection()` default `clearPreSelect=true`; selection replay uses `clearPreSelect=false`, then calls `setPreselect(...)` or `rmvPreselect()`, and `getPreselection()` round-trips (03-03:28, :132, :140). Task 1 behavior/action repeats this sequence and requires GTests that seed preselection with `setPreselect(...)` and assert `getPreselection()` after the fire (03-03:137, :146, :153). Acceptance requires `setPreselect`, `rmvPreselect`, `clearPreSelect`, and `getPreselection` in the guard + tests (03-03:146-147, :153). | No longer a no-op. The plan restores BOTH complete selection AND preselection, and the test must assert the preselection state itself, not just selection. |
+
+### New/Remaining Concerns
+
+- **HIGH: None.**
+
+- **[MEDIUM] Preselection-snapshot lifetime must be enforced at execution.** The plan says to copy the current `SelectionChanges` (correct), but also phrases this as storing `pDocName`/`pObjectName`/`pSubName`. Implementation must store `SelectionChanges` BY VALUE or copy those strings into owned storage — NOT retain raw `const char*` pointers (grounded: `SelectionChanges`' copy-ctor/assign rebind the char pointers to the copy's own `Object` member, Selection.h:150-191, so a by-value snapshot is safe; raw-pointer storage would dangle once the live preselection changes). The round-trip GTest helps but may not reliably catch a dangling pointer if freed memory happens to remain intact. (Independently surfaced by both Codex and the orchestrator's grounding pass.)
+
+- **[MEDIUM] Strengthen the scoping QTEST with a root-level non-Body sibling.** The QTEST proves two real Bodies under the real `DocumentItem`, which closes HIGH-A. If the product requirement is literally "ONLY the active Body subtree is visible," add a root-level non-Body sibling object to the QTEST and assert it is hidden (or intentionally shown) too — the current revised text focuses on hiding non-active *Body* subtrees and does not pin the non-Body-sibling case.
+
+- **[LOW] Several acceptance checks are grep-based.** The plans correctly make CI/QTEST/GTest the real authority and mark tests "authored, pending CI," so this is an execution-discipline risk, not a plan-blocking issue.
+
+### Risk Assessment
+
+Overall risk: **LOW–MEDIUM** (down from cycle-2 MEDIUM). The main convergence risks have shifted from DESIGN correctness to IMPLEMENTATION discipline: ensuring the recursive tree walk really operates on stock populated items, ensuring preselection storage uses owned/by-value lifetime, and verifying the headless QTEST can populate the real GUI tree in CI. The revised gate language is strong enough: if the real two-Body QTEST cannot be made to pass, SPIKE.md MUST mark item 2 FAIL/UNKNOWN and take the projection-tree fallback.
+
+- **03-01: LOW–MEDIUM** — the topology fix is correct and the item-2 gate now demands real-DOM code evidence; residual risk is whether a fully populated stock document can be built headlessly in CI (the plan already provides the FAIL/UNKNOWN escape hatch).
+- **03-02: LOW** — consumes the corrected `scopeToActiveBody()`; the delegate now resolves plane objects through the public `DocumentObjectItem::object()` path (prior MEDIUM addressed); base-first `dragMoveEvent` is sound.
+- **03-03: LOW–MEDIUM** — preselection restore is now real and test-asserted; the only residual is the snapshot-lifetime MEDIUM, an execution detail.
+
+---
+
+## Cycle-3 Consensus Summary
+
+Single external reviewer (Codex) this cycle, cross-checked against an independent 13/13 source-grounding pass; both converge. **Both surviving cycle-2 HIGH concerns are FULLY RESOLVED with REAL mechanism + test changes, not wording-only:**
+
+1. **(HIGH-A) Scoping topology** — `scopeToActiveBody()` was rewritten to recurse from `invisibleRootItem()` through the per-document `DocumentItem` (Tree.h:348), resolve each item's App object via the public `DocumentObjectItem::object()` accessor (Tree.h:495), keep the ancestor `DocumentItem` visible, and hide non-active `PartDesign::Body` CHILD subtrees via the public `setHidden` API the base tree itself uses (Tree.cpp:4574/6070). The D-03 item-2 PASS now demands a REAL two-Body-document QTEST (active Body visible, non-active Body subtree hidden, active Body's Origin first among visible rows) — a synthetic-top-level-item QTEST or a doc-only "reachable" note is an explicit non-PASS. The plan explicitly rejects `topLevelItem(i)` Body discovery. Grounding confirms the topology premise and that the cited APIs are public and link-free.
+
+2. **(HIGH-B) Preselection restore** — `FwSelectionGuard` now restores preselection explicitly: it replays the selection with `clearPreSelect=false` (the Selection.h:360 last-arg overload) and re-asserts the snapshotted preselect via `setPreselect(...)` (Selection.h:413) — or `rmvPreselect()` (Selection.h:423) when the snapshot held none. The guard GTest must seed a known preselect with `setPreselect(...)` before the fire and assert `getPreselection()` round-trips (plus a no-preselect-before case). Grounding confirms both `clearSelection` and `addSelection` default `clearPreSelect=true` (so the explicit restore is genuinely necessary, not decorative), and that the restore API exists at the cited lines.
+
+**No newly-introduced HIGH concerns.** Two MEDIUMs (enforce by-value/owned preselection-snapshot lifetime; add a root-level non-Body sibling to the scoping QTEST) and one LOW (grep checks are not behavioral proof) are execution-discipline tightenings, not blockers.
+
+### Agreed Strengths (cycle 3)
+- The revision made REAL mechanism + test changes for BOTH surviving HIGHs (verified against plan line + source), not cosmetic rewording.
+- Source grounding remains materially accurate (13/13 cited symbols verified, 0 MISSING); the fixes bind to public, link-free seams at the exact cited locations.
+- The item-2 spike gate now demands real-DOM code evidence (the two-Body QTEST), and the guard test now asserts the preselection state itself — both gates can no longer be satisfied by the false-positive that survived cycle 2.
+
+### Agreed Concerns (cycle 3 — both MEDIUM, both grounded)
+1. **Preselection-snapshot lifetime** — store `SelectionChanges` by value / owned strings, not raw `const char*` (Selection.h:150-191 makes the by-value copy safe; raw-pointer storage dangles).
+2. **Scoping QTEST sibling coverage** — add a root-level non-Body sibling and assert its visibility disposition if "only the active Body subtree visible" is the literal requirement.
+
+### Divergent Views
+None — single reviewer; the orchestrator's source-grounding pass agreed with Codex on every factual claim it could check (the nested `DocumentItem` topology, the public `object()` accessor, the `clearPreSelect=true` defaults, the restore API, AND the `SelectionChanges`-copy lifetime caveat). No contradictions.
+
+---
+
+## Recommended Next Step
+
+**Convergence reached — 0 HIGH concerns remain (down from 7 → 2 → 0 across three cycles).** Phase 3 plans are cleared to execute:
+
+```
+/gsd-execute-phase 3
+```
+
+Fold the two cycle-3 MEDIUMs into execution (not blockers):
+- **MEDIUM-1:** in `FwSelectionGuard`, store the preselection snapshot as a by-value `SelectionChanges` (or copy `pDocName`/`pObjectName`/`pSubName` into owned `std::string`s) so the restored pointers never dangle.
+- **MEDIUM-2:** add a root-level non-Body sibling object to the scoping QTEST and assert its visibility disposition, to pin the literal "only the active Body subtree is visible" requirement.
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# CYCLE 2 — Convergence Re-Review (2026-06-14) — HISTORY
 # ═══════════════════════════════════════════════════════════
 
 **Reviewer:** Codex CLI (codex-cli 0.139.0, default model), adversarial re-review of the REVISED 03-01/02/03 plans.
