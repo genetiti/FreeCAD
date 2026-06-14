@@ -133,5 +133,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-06-14 (resumed)
-Stopped at: 03-03 closeout COMPLETE — Task 3 (SPIKE_LIVE_CHECKLIST Phase-3 section) committed, 03-03-SUMMARY.md written, STATE advanced. Phase 03 plans all executed (TREE-02 done). Next: phase verification/transition (/gsd-verify-work) or plan Phase 04 (PropertyManager).
+Stopped at: 03-03 closed out + code-reviewed + hardened + UAT recorded. Sequence this session: (1) closeout commits ec145d92cb/b2e13a523d; (2) config migration adopted 73b4fb329a; (3) code review of FwRollbackBar/FwSelectionGuard/drawRow — no blocking bugs (roll-to-base verified against real PartDesign_MoveTip); (4) /gsd-fast hardening 734979cf78 (obj→item single-DFS cache, 1px band tolerance, no-Body Roll-action greying); (5) /gsd-verify-work → 03-UAT.md: all 8 live-GUI tests blocked:release-build (no build tree), 0 issues, status=partial — Phase 3 INTENTIONALLY NOT transitioned (commit f77d97c899). Phase 03 code complete + source-verified; live UAT + SPIKE_LIVE_CHECKLIST gate the milestone parity sign-off. Next: live UAT on a real build, OR plan Phase 04 (PropertyManager — no CONTEXT.md yet).
 Resume file: None
