@@ -93,7 +93,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Wave 0 test scaffold + tree-reuse spike gate (D-03 `reuse committed`/`subclass-fallback committed` verdict; Body.Tip rollback-logic confirmed) (TREE-01, TREE-02, TREE-04)
+- [x] 03-01-PLAN.md — Wave 0 test scaffold + tree-reuse spike gate (D-03 `reuse committed`/`subclass-fallback committed` verdict; Body.Tip rollback-logic confirmed) (TREE-01, TREE-02, TREE-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -181,7 +181,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. SolidWorks Mode Foundation | 4/4 | Complete   | 2026-06-07 |
 | 2. CommandManager Ribbon | 4/4 | Complete    | 2026-06-14 |
-| 3. FeatureManager Design Tree | 0/3 | Planned | - |
+| 3. FeatureManager Design Tree | 1/3 | In Progress|  |
 | 4. PropertyManager Panel | 0/TBD | Not started | - |
 | 5. Selection Parity & On-Canvas Accelerators | 0/TBD | Not started | - |
 | 6. Mouse Gestures & Instant3D Handles | 0/TBD | Not started | - |

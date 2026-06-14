@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 3 plans CONVERGED (Codex cross-AI 7→2→0 HIGH); ready to execute
-last_updated: "2026-06-14T16:20:02.784Z"
-last_activity: "2026-06-14 -- Phase 03 plan convergence complete (3 Codex cycles, 0 HIGH); next: /gsd-execute-phase 3"
+status: verifying
+stopped_at: Phase 3 UI-SPEC approved
+last_updated: "2026-06-14T16:35:13.686Z"
+last_activity: "2026-06-14 -- Phase 03 plan convergence complete (Codex, 0 HIGH); next: /gsd-execute-phase 3"
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 11
+  completed_plans: 9
   percent: 29
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 3 of 7 (featuremanager-design-tree) — PLANNED + CONVERGED, READY TO EXECUTE
-Plan: 0 of 3 (03-01 → 03-02 → 03-03, strictly sequential)
+Plan: 1 of 3 (03-01 → 03-02 → 03-03, strictly sequential)
 Status: Phase 03 plans CONVERGED via Codex cross-AI adversarial review — trajectory 7→2→0 HIGH over 3 cycles (internal plan-checker also PASSED). Source-grounding 30/30 then 13/13 verified. Wave 1 (03-01) = test scaffold + D-03 tree-reuse spike gate (blocking human-verify, no build tree → doc-approval per precedent); Waves 2/3 build on the verdict. Prereqs: CONTEXT/RESEARCH/VALIDATION/UI-SPEC/PATTERNS/REVIEWS all in place.
 Last activity: 2026-06-14 -- Phase 03 plan convergence complete (Codex, 0 HIGH); next: /gsd-execute-phase 3
 
@@ -60,6 +60,7 @@ Progress: [███░░░░░░░] 2 of 7 phases complete (29%)
 | Phase 02 P02 | — | 2 tasks | 7 files |
 | Phase 02 P03 | 6 | 2 tasks | 7 files |
 | Phase 02 P04 | 5 | 2 tasks | 7 files |
+| Phase 03 P01 | 511 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [Phase 02]: [02-04]: Sketch identified ONLY by the type-name literal "SketcherGui::ViewProviderSketch" — zero compile/link dependency on the Sketcher module (Pitfall 2); the literal is an external contract requiring live re-validation (REVIEW LOW)
 - [Phase 02]: [02-04]: FwRibbonContext pure core returns a TabAction enum (SwitchToSketch/NoOp/RestorePrevious), never a raw index; explicit contextActive_ state machine — nested sketch enter is NoOp+no-re-stash (concern 7), stray reset is NoOp; ribbon held via QPointer; scoped fastsignals connections released on teardown; FwLayout owns one context per mounted ribbon, reset BEFORE the ribbon is removed (threat T-02-09)
 - [Phase 02]: [02-04]: Live edit-lifecycle round-trip (enter sketch→Sketch tab→exit→restore — open item-5 in SPIKE_LIVE_CHECKLIST.md) + live type-name re-validation + ctest deferred (no build tree/GUI in env); pure-logic + bound-ribbon tests authored compile-intended; leak-grep clean
+- [Phase ?]: Spike A verdict: reuse committed — thin FwFeatureTree : Gui::TreeWidget is the committed FeatureManager engine for Plans 03-02/03-03 (scoping via recursive setHidden over the DocumentItem->Body topology, proven by a REAL two-Body QTEST)
+- [Phase ?]: Active Body identified by 'PartDesign::Body' type-name literal only; no PartDesign include/link; link-free Group read via getPropertyByName('Group')
+- [Phase ?]: Phase 3 spike gate cleared by documentation approval (no build tree); live demonstrations deferred to FwFeatureTree_SPIKE_LIVE_CHECKLIST.md
 
 ### Pending Todos
 
@@ -115,6 +119,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T05:19:51.027Z
+Last session: 2026-06-14T16:34:42.080Z
 Stopped at: Phase 3 UI-SPEC approved
 Resume file: .planning/phases/03-featuremanager-design-tree/03-UI-SPEC.md

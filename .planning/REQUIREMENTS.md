@@ -23,10 +23,10 @@ The user chose **full parity** for v1 — the complete SolidWorks part-modeling 
 
 ### FeatureManager Design Tree
 
-- [ ] **TREE-01**: User sees a left-docked FeatureManager design tree showing features in creation order, with an origin/planes node and sketches nested under their features *(T2)*
-- [ ] **TREE-02**: User can drag a rollback bar in the tree to roll the model back to an earlier feature state and insert/edit mid-history *(T3)*
+- [x] **TREE-01**: User sees a left-docked FeatureManager design tree showing features in creation order, with an origin/planes node and sketches nested under their features *(T2)*
+- [x] **TREE-02**: User can drag a rollback bar in the tree to roll the model back to an earlier feature state and insert/edit mid-history *(T3)*
 - [ ] **TREE-03**: User can double-click a feature in the tree to open it for editing in the PropertyManager, and F2 to rename *(T8)*
-- [ ] **TREE-04**: User can drag features up/down in the tree to reorder history, with validity feedback *(T9)*
+- [x] **TREE-04**: User can drag features up/down in the tree to reorder history, with validity feedback *(T9)*
 
 ### PropertyManager
 
@@ -101,9 +101,9 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | NAV-01 | Phase 1 | Complete |
 | RIBBON-01 | Phase 2 | Complete |
 | RIBBON-02 | Phase 2 | Complete |
-| TREE-01 | Phase 3 | Pending |
-| TREE-02 | Phase 3 | Pending |
-| TREE-04 | Phase 3 | Pending |
+| TREE-01 | Phase 3 | Complete |
+| TREE-02 | Phase 3 | Complete |
+| TREE-04 | Phase 3 | Complete |
 | PROP-01 | Phase 4 | Pending |
 | PROP-02 | Phase 4 | Pending |
 | TREE-03 | Phase 4 | Pending |

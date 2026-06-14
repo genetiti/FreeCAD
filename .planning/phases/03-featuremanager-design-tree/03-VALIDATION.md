@@ -2,8 +2,8 @@
 phase: 3
 slug: featuremanager-design-tree
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: false  # tests authored, not run locally (no build tree); pending CI
 created: 2026-06-14
 ---
 
