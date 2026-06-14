@@ -72,7 +72,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-04-PLAN.md — Context tab switching: sketch-edit activates the Sketch tab, restores on exit (RIBBON-02)
+- [x] 02-04-PLAN.md — Context tab switching: sketch-edit activates the Sketch tab, restores on exit (RIBBON-02)
 
 **UI hint**: yes
 

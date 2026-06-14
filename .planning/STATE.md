@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 Plan 02-03 complete (ribbon mounted as real QToolBar + chrome hide/restore + escape hatch + persistence)
-last_updated: "2026-06-14T00:04:00.000Z"
-last_activity: 2026-06-14 -- Plan 02-03 closed; FwRibbon mounted in TopToolBarArea, D-11/D-12/D-14 wired (Wave 3 done)
+stopped_at: Phase 2 Plan 02-04 complete — PHASE 2 IMPLEMENTATION COMPLETE (context tab switching via FwRibbonContext; RIBBON-02 done)
+last_updated: "2026-06-14T00:13:41.000Z"
+last_activity: 2026-06-14 -- Plan 02-04 closed; FwRibbonContext drives sketch-edit context tab switch (RIBBON-02), all 4 Phase-2 plans done (Wave 4 done)
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 7
-  percent: 18
+  completed_plans: 8
+  percent: 20
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 02 (commandmanager-ribbon) — EXECUTING
-Plan: 4 of 4 (Wave 4 next — 02-04 context tab switching via FwRibbonContext)
-Status: Wave 3 complete (02-03) — FwRibbon mounted as a real QToolBar (Fw_RibbonToolBar) in Qt::TopToolBarArea; reversible snapshot-driven stock-chrome hide/restore (D-11); "More commands…" overflow escape hatch (D-12); two-layer persistence (QMainWindow toolbar state + ParameterGrp tab-state key, D-14)
-Last activity: 2026-06-14 -- Plan 02-03 closed; mount/chrome/persistence/escape-hatch ready for Plan 04's context switcher (setCurrentTab seam)
+Phase: 02 (commandmanager-ribbon) — IMPLEMENTATION COMPLETE (4 of 4 plans); pending deferred live-build/GUI verification before phase gate
+Plan: 4 of 4 (02-04 done — context tab switching via FwRibbonContext)
+Status: Wave 4 complete (02-04) — FwRibbonContext subscribes to Gui::Application signalInEdit/signalResetEdit and drives the active ribbon tab (RIBBON-02): entering a sketch activates the Sketch tab (context wins, D-10), leaving restores the prior tab; explicit contextActive_ state machine (nested enter NoOp, stray reset NoOp — concern 7); sketch identity by type-name string only (no Sketcher link, Pitfall 2); QPointer guard; FwLayout owns/tears-down the context. Phase 2 (RIBBON-01 + RIBBON-02) implementation complete.
+Last activity: 2026-06-14 -- Plan 02-04 closed; all Phase-2 plans done. Remaining: deferred CI/tri-OS + SPIKE_LIVE_CHECKLIST sign-off (no build tree in env)
 
-Progress: [███████░░░] 75% (3 of 4 plans)
+Progress: [██████████] 100% (4 of 4 plans — Phase 2 implementation)
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [███████░░░] 75% (3 of 4 plans)
 | Phase 02 P01 | — | 3 tasks | 9 files |
 | Phase 02 P02 | — | 2 tasks | 7 files |
 | Phase 02 P03 | 6 | 2 tasks | 7 files |
+| Phase 02 P04 | 5 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,10 @@ Recent decisions affecting current work:
 - [Phase 02]: [02-03]: D-14 persistence is TWO-LAYER — toolbar presence/area/order via QMainWindow saveState (real QToolBar); selected tab persisted SEPARATELY via ParameterGrp key User parameter:BaseApp/Preferences/FreeWorks/Ribbon (currentTab int) because saveState does not cover a QTabWidget's selected tab (REVIEW concern 4)
 - [Phase 02]: [02-03]: D-12 escape hatch = pinned "More commands…" tab-bar corner widget (QToolButton + lazy QMenu from getAllCommands() grouped by module, each the command's existing QAction) + the baseline that QAction shortcuts survive menuBar()->hide(); no command stranded
 - [Phase 02]: [02-03]: Live ctest + true-restart persistence + live menu-bar/macOS native-menu round-trip deferred (no build tree/GUI in env); headless QTEST_MAIN assertions authored compile-intended (mount area, idempotent remount, chrome round-trip, overflow reachable, saveState area round-trip, tab-index restore); leak-grep clean
+- [Phase 02]: [02-04]: RIBBON-02 wired to Gui::Application signalInEdit/signalResetEdit (event-driven) — the documented reinterpretation of D-09's "Gui::Control active-dialog/edit state"; Control's accessor has no change signal so polling it would be laggy/racy (Pitfall 1)
+- [Phase 02]: [02-04]: Sketch identified ONLY by the type-name literal "SketcherGui::ViewProviderSketch" — zero compile/link dependency on the Sketcher module (Pitfall 2); the literal is an external contract requiring live re-validation (REVIEW LOW)
+- [Phase 02]: [02-04]: FwRibbonContext pure core returns a TabAction enum (SwitchToSketch/NoOp/RestorePrevious), never a raw index; explicit contextActive_ state machine — nested sketch enter is NoOp+no-re-stash (concern 7), stray reset is NoOp; ribbon held via QPointer; scoped fastsignals connections released on teardown; FwLayout owns one context per mounted ribbon, reset BEFORE the ribbon is removed (threat T-02-09)
+- [Phase 02]: [02-04]: Live edit-lifecycle round-trip (enter sketch→Sketch tab→exit→restore — open item-5 in SPIKE_LIVE_CHECKLIST.md) + live type-name re-validation + ctest deferred (no build tree/GUI in env); pure-logic + bound-ribbon tests authored compile-intended; leak-grep clean
 
 ### Pending Todos
 
@@ -110,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T00:04:00.000Z
-Stopped at: Completed 02-03-PLAN.md (ribbon mount + chrome hide/restore + escape hatch + two-layer persistence)
-Resume file: .planning/phases/02-commandmanager-ribbon/02-04-PLAN.md
+Last session: 2026-06-14T00:13:41.000Z
+Stopped at: Completed 02-04-PLAN.md (FwRibbonContext context tab switching, RIBBON-02) — Phase 2 implementation complete
+Resume file: None (Phase 2 implementation complete; next is phase verification / Phase 3 planning)
