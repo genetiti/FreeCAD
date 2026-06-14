@@ -35,6 +35,7 @@
 #include <QTabWidget>
 
 class QToolBar;
+class QToolButton;
 class QWidget;
 
 namespace FreeWorksGui
@@ -107,7 +108,39 @@ public:
      */
     void setCurrentTab(const QString& tabName);
 
+    /**
+     * Persist the SELECTED TAB index to the FreeWorks ribbon ParameterGrp key (D-14).
+     *
+     * QMainWindow::saveState() round-trips the wrapper QToolBar (Fw_RibbonToolBar)
+     * but does NOT cover a QTabWidget's selected tab (REVIEW concern 4), so the
+     * current tab is persisted SEPARATELY here via ParameterGrp::SetInt. Called on
+     * tab change and at teardown.
+     */
+    void saveTabState() const;
+
+    /**
+     * Restore the selected tab index from the FreeWorks ribbon ParameterGrp key
+     * (D-14). Clamped to the valid tab range; a stale/out-of-range index is ignored.
+     * Called after a build.
+     */
+    void restoreTabState();
+
 private:
+    /// Lazily (re)build the "More commands…" overflow menu from the CommandManager.
+    void rebuildOverflowMenu();
+
+    /// Install the pinned "More commands…" overflow QToolButton as the tab-bar
+    /// corner widget (D-12 escape hatch). Idempotent.
+    void installOverflowButton();
+
+    /// The pinned "More commands…" overflow button (tab-bar corner widget, D-12).
+    QToolButton* m_overflowButton = nullptr;
+
+    /// When true, currentChanged-driven saveTabState() is suppressed: a rebuild
+    /// transiently clears+repopulates tabs, and persisting those transient indices
+    /// would clobber the user's stored selection before restoreTabState() runs.
+    bool m_suppressTabStateSave = false;
+
     /// Find an existing tab page by its label, or create+append a new one.
     QWidget* tabPageForName(const QString& tabName);
 

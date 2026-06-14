@@ -279,6 +279,76 @@ private Q_SLOTS:
         FreeWorksGui::FwLayout::restoreStockChrome();
         QCOMPARE(mb->isVisible(), before);
     }
+
+    // D-12 (Task 2): the ribbon installs a pinned "More commands…" overflow as the
+    // top-right tab-bar corner widget (a QToolButton with a menu), reaching the
+    // uncurated command set. Asserts the affordance EXISTS and is labeled exactly.
+    void test_OverflowCornerWidgetPresent()
+    {
+        auto ribbon = std::make_unique<FreeWorksGui::FwRibbon>();
+        ribbon->buildFromCuratedMap();
+
+        QWidget* corner = ribbon->cornerWidget(Qt::TopRightCorner);
+        QVERIFY2(corner != nullptr, "the overflow corner widget must be installed");
+        auto* button = qobject_cast<QToolButton*>(corner);
+        QVERIFY2(button != nullptr, "the overflow affordance must be a QToolButton");
+        QCOMPARE(button->text(), QStringLiteral("More commands…"));
+        QVERIFY2(button->menu() != nullptr, "the overflow button must carry a menu");
+
+        // Lazily building the menu reaches the uncurated command set (>0 entries).
+        button->menu()->aboutToShow();  // trigger the lazy rebuild
+        QVERIFY2(!button->menu()->actions().isEmpty(),
+                 "the overflow menu must reach the uncurated command set");
+    }
+
+    // D-14 (Task 2) toolbar layer: the wrapper QToolBar round-trips through the real
+    // Gui::MainWindow's saveState()/restoreState() — assert the RESTORED AREA
+    // (Qt::TopToolBarArea), not mere objectName existence (REVIEW MEDIUM). Uses the
+    // production seam (Gui::getMainWindow()), not a bare generic QMainWindow.
+    void test_ToolBarStateRoundTripRestoresArea()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+
+        FreeWorksGui::FwLayout::mountRibbon();
+        QToolBar* tb = mw->findChild<QToolBar*>(QStringLiteral("Fw_RibbonToolBar"));
+        QVERIFY2(tb != nullptr, "the wrapper toolbar must be mounted before saveState");
+        QCOMPARE(mw->toolBarArea(tb), Qt::TopToolBarArea);
+
+        const QByteArray blob = mw->saveState();
+        QVERIFY2(!blob.isEmpty(), "saveState() must serialize the real QToolBar wrapper");
+
+        // Round-trip: restoreState must place the wrapper back in the top area.
+        QVERIFY2(mw->restoreState(blob), "restoreState() must accept the saved blob");
+        QToolBar* restored = mw->findChild<QToolBar*>(QStringLiteral("Fw_RibbonToolBar"));
+        QVERIFY(restored != nullptr);
+        QCOMPARE(mw->toolBarArea(restored), Qt::TopToolBarArea);
+
+        FreeWorksGui::FwLayout::unmountRibbon();
+    }
+
+    // D-14 (Task 2) tab layer: the SELECTED TAB persists separately via the
+    // ParameterGrp key (QMainWindow::saveState does NOT cover it — REVIEW concern 4).
+    // Asserts the RESTORED INDEX, not object existence.
+    void test_TabStateRoundTripRestoresIndex()
+    {
+        auto ribbon = std::make_unique<FreeWorksGui::FwRibbon>();
+        ribbon->buildFromCuratedMap();
+        QVERIFY2(ribbon->tabCount() >= 3, "curated build must yield the 3 core tabs");
+
+        ribbon->setCurrentIndex(2);
+        ribbon->saveTabState();
+
+        // A fresh ribbon must pick the persisted index back up after a build.
+        auto fresh = std::make_unique<FreeWorksGui::FwRibbon>();
+        fresh->buildFromCuratedMap();  // build() calls restoreTabState() internally
+        QCOMPARE(fresh->currentIndex(), 2);
+
+        // Explicit restoreTabState() is also idempotent.
+        fresh->setCurrentIndex(0);
+        fresh->restoreTabState();
+        QCOMPARE(fresh->currentIndex(), 2);
+    }
 };
 
 QTEST_MAIN(testFwRibbonWidget)
