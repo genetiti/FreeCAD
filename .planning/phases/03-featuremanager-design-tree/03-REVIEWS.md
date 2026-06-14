@@ -2,13 +2,141 @@
 phase: 3
 reviewers: [codex]
 reviewed_at: 2026-06-14
-cycle: 1
+cycle: 2
 plans_reviewed: [03-01-PLAN.md, 03-02-PLAN.md, 03-03-PLAN.md]
-current_high: 7
-source_grounding: 30/30 verified, 0 MISSING
+current_high: 2
+cycle_history:
+  - cycle: 1
+    current_high: 7
+    source_grounding: 30/30 verified, 0 MISSING
+  - cycle: 2
+    current_high: 2
+    source_grounding: 11/11 new symbols verified, 0 MISSING
+    prior_high_resolved: 5/7 (FULLY); 2/7 PARTIAL (kept open)
 ---
 
 # Cross-AI Plan Review — Phase 3 (FeatureManager Design Tree)
+
+> **CYCLE 2 (convergence) is recorded at the TOP. Cycle 1 follows below for history.**
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# CYCLE 2 — Convergence Re-Review (2026-06-14)
+# ═══════════════════════════════════════════════════════════
+
+**Reviewer:** Codex CLI (codex-cli 0.139.0, default model), adversarial re-review of the REVISED 03-01/02/03 plans.
+**Mandate:** Verify whether EACH of the 7 cycle-1 HIGH concerns is GENUINELY closed in the revised plan text (not wording-only), and surface any remaining or newly-introduced HIGH concerns.
+**Method:** Independent source-grounding of every NEW symbol the revision cites, then a Codex adversarial pass with the per-concern verdict mandate. Both passes converged.
+
+## Cycle-2 Source-Grounding Pass (new symbols cited by the revision)
+
+Every NEW existing symbol the revised plans cite was checked against the real source. New-artifact names introduced by the revision (`FwSelectionGuard`, `FwFeatureTree`, `FwRollbackBar`, `FwFeatureTreeDelegate`) were confirmed not-yet-existing and excluded.
+
+| # | Symbol / Claim (NEW this cycle) | Status | Actual location / note |
+|---|---|---|---|
+| 1 | `QTreeWidgetItem::setHidden(...)` used by base `Gui::TreeWidget` itself | VERIFIED | Tree.cpp:4574 (`item->setHidden(true)`), :6070 (`objitem->setHidden(...)`); also 3458/3598/3986/5794/6040 — the public-item hide API is real and used internally |
+| 2 | `Gui::Selection::getCompleteSelection()` → `std::vector<SelObj>` | VERIFIED | Selection.h:605 (exact) |
+| 3 | `addSelection(const SelectionObject&, bool clearPreSelect=true)` / `clearSelection(..., bool clearPreSelect=true)` / `getPreselection()` | VERIFIED (nuance) | Selection.h:360 / :385 / :427 — **both clearSelection AND addSelection DEFAULT to `clearPreSelect=true`** (drives residual HIGH-B below) |
+| 4 | `setPreselect(...)` / `rmvPreselect(...)` (preselection restore API) | VERIFIED | Selection.h:413 / :423 — the API to restore preselection EXISTS but the plan does not use it (residual HIGH-B) |
+| 5 | `App::PropertyLinkList Group;` (GroupExtension) read link-free via `getPropertyByName("Group")` | VERIFIED | GroupExtension.h:142; upstream itself does `freecad_cast<App::PropertyLinkList*>(targetObj->getPropertyByName("Group"))` at Tree.cpp:3266 → `setValue` :3273 (the exact link-free reorder path the plan reuses) |
+| 6 | `Body.insertObject(feature, target, after)` Python-only exposure | VERIFIED | Body.pyi:24 (exact); the `@note the method doesn't modify the Tip unlike addObject()` is at Body.pyi:34 (exact) |
+| 7 | `CmdPartDesignMoveTip` owns its OWN `openCommand` (no outer wrap needed) | VERIFIED | CommandBody.cpp:730 (exact); getSelection().getObjectsOfType @674; "Only a solid feature can be the tip" guard @719; FCMD_OBJ_SHOW @739; updateActive @744 |
+| 8 | `Body::getPrevSolidFeature`/`isSolidFeature` are C++-only, ABSENT from Body.pyi | VERIFIED | Body.cpp:102 / :176 exist; grep of Body.pyi finds NEITHER — referencing them from FreeWorks WOULD force a PartDesign link (confirms concern-7 premise; the link-free resolver is the correct fix) |
+| 9 | `Body::mustExecute()` returns 1 on `Tip.isTouched()` | VERIFIED | Body.cpp:94-100 (exact) — the real suppress-below trigger the GTest asserts |
+| 10 | Base `TreeWidget::dragMoveEvent` calls `QTreeWidget::dragMoveEvent` + `canDropObjectEx` | VERIFIED | Tree.cpp:2348 (fn), :2359 (`QTreeWidget::dragMoveEvent`), :2450 (`canDropObjectEx`) — "call base first, decorate ignored case" is grounded |
+| 11 | `DocumentObjectItem::object()` PUBLIC accessor → `Gui::ViewProviderDocumentObject*`; plane role via `PropertyString Role`/`PlaneRoles` | VERIFIED | Tree.h:495 (public `object()`); Datums.h:47 (`PropertyString Role`), Datums.h:204 (`PlaneRoles[3]={"XY_Plane","XZ_Plane","YZ_Plane"}`) — the delegate's "stock item path" is real, no private internals |
+
+### Cycle-2 Verification coverage
+- **Total new symbols checked:** 11 (+ 4 new-artifact names confirmed not-yet-existing, excluded)
+- **VERIFIED:** 11 / 11
+- **MISSING:** 0
+- **AMBIGUOUS:** 0 — but **2 grounded NUANCES drive the surviving HIGHs**: (3) clearSelection AND addSelection both default `clearPreSelect=true`, so the guard's clear+re-add restore wipes preselection unless `setPreselect`/`rmvPreselect` is used; (11)/topology — `DocumentItem` is the top-level `QTreeWidgetItem` per document (Tree.h:348) and objects are CHILDREN (`parent->addChild(item)` Tree.cpp:4562), so a `PartDesign::Body` is NOT a top-level item — the plan's `topLevelItem(i)` scoping + synthetic-top-level QTEST would not exercise the real nested topology.
+- **UNCHECKABLE:** 0
+- **Independent confirmation:** the orchestrator's grounding pass agreed with Codex on BOTH surviving HIGHs (topology + preselection), strengthening confidence these are real, not reviewer noise.
+
+---
+
+## Codex Cycle-2 Review
+
+**Summary**
+
+The revision closes most of the prior HIGHs, but not all. Concerns 1, 3, 5, 6, and 7 are genuinely addressed with concrete mechanisms and acceptance gates. Concern 2 is only partially resolved because the plan now uses `setHidden`, but its test/gate still proves a synthetic top-level-item case rather than real stock-tree active-Body scoping and Origin-first rendering. Concern 4 is also only partially resolved because `FwSelectionGuard` snapshots preselection but the restore/test criteria only restore/assert complete selection, leaving preselection loss as a real side effect.
+
+### Per-Concern Verdict Table
+
+| # | Cycle-1 Concern | Verdict | Evidence / why-not |
+|---|---|---|---|
+| 1 | Leak-grep contradiction | **FULLY RESOLVED** | 03-03 mandates `SPIKE_LIVE_CHECKLIST.md` use reference-CAD/SW phrasing and no bare token (03-03-PLAN.md:35), with explicit task instructions + a direct grep check (03-03-PLAN.md:191-215). Real mechanism, not a claim. Grounding: leak-grep DOES scan markdown; fix is correct. |
+| 2 | D-03 spike scoping render | **PARTIALLY RESOLVED** | Mechanism correctly changed to `QTreeWidgetItem::setHidden(true)` (03-01-PLAN.md:26, :167, :173); doc-only PASS rejected (03-01-PLAN.md:211, :224). BUT the QTEST uses two manually-added **top-level** `QTreeWidgetItem`s (03-01-PLAN.md:132) and the impl text assumes non-active Body rows are top-level (03-01:26,:167; 03-02:149,:153). Real stock tree nests Bodies UNDER a `DocumentItem` — the gate can pass without proving real-DOM scoping or Origin-first. → **HIGH-A below.** |
+| 3 | Fallback path not credible | **FULLY RESOLVED** | Concrete projection tree building own items from `Group`, reusing command paths, explicitly NOT "override more virtuals" (03-01-PLAN.md:97,:99,:221; 03-02-PLAN.md:69). Closes the non-virtual/friended item-factory problem. |
+| 4 | MoveTip global `Gui::Selection` side effects | **PARTIALLY RESOLVED** | `FwSelectionGuard` snapshots selection + preselection, selects only target, restores on scope-exit (03-03-PLAN.md:27,:126,:134). BUT restore/test only re-adds selected `SelObj`s and asserts `getCompleteSelection()` (03-03:126,:131,:140,:145); does NOT restore/assert `getPreselection()`. Since clearSelection/addSelection default to clearing preselect, a visible global side effect can remain. → **HIGH-B below.** |
+| 5 | Transaction double-wrap | **FULLY RESOLVED** | Command-ID path explicitly adds NO outer FreeWorks transaction (PartDesign_MoveTip owns openCommand@730) (03-03:28,:115,:128,:142); one `doc->undo()` restores prior Tip required (03-03:131,:145). |
+| 6 | `insertObject` mischaracterized | **FULLY RESOLVED** | Now Python-only, no command-ID, doesn't move Tip, explicit post-insert Tip policy (03-03:34,:119,:130,:134): same-transaction insert + Tip update for solid inserts, Tip unchanged for non-solid. |
+| 7 | No-link resolver leaks PartDesign | **FULLY RESOLVED** | Consistently bans `getPrevSolidFeature`/`isSolidFeature`, uses `Group` + type-name classification, grep-gated to 0 (03-01:27,:124,:140,:168; 03-03:26,:127,:143); no PartDesign include/link gates (03-01:183; 03-03:144). |
+
+### Remaining or New Concerns
+
+- **[HIGH-A] Real active-Body scoping is still not proven against the stock tree topology.** The `setHidden` mechanism is correct in principle, but the evidence gate is too shallow. The QTEST (03-01-PLAN.md:132) uses two **synthetic top-level** items, while the impl/acceptance language scopes "top-level" rows (03-01:167,:173; 03-02:149,:153). In the real `Gui::TreeWidget`, the per-document `DocumentItem` is the top-level `QTreeWidgetItem` and Bodies/features are nested CHILDREN below it (grounding: Tree.h:348 `class DocumentItem: public QTreeWidgetItem`; Tree.cpp:4562 `parent->addChild(item)`). A `topLevelItem(i)` scope that hides "non-active top-level items" would iterate document items, not Body items — the test would pass while never exercising the real nested topology, and Origin-first ordering is unproven. **Required change:** make `scopeToActiveBody()` traverse recursively from `invisibleRootItem()`, keep required ancestors visible, hide non-active Body subtrees + unrelated objects; the item-2 PASS must assert (via a QTEST/live spike on a real populated FreeCAD document with TWO Bodies) that the active Body is visible, the non-active Body subtree is hidden, and the active Body's Origin renders first among visible rows.
+
+- **[HIGH-B] `FwSelectionGuard` snapshots preselection but does not actually restore it.** The plan snapshots preselection via `getPreselection()` (03-03:27,:126,:134) but the restore wording only re-adds selected `SelObj`s and the test only asserts `getCompleteSelection()` (03-03:131,:140,:145). Grounding confirms both `clearSelection(..., clearPreSelect=true)` and `addSelection(..., clearPreSelect=true)` DEFAULT to clearing preselection (Selection.h:360,:385), so the guard's clear+re-add restore wipes the prior preselection — a visible global state leak the guard was introduced to prevent. The restore API exists (`setPreselect` Selection.h:413 / `rmvPreselect` :423) but is unused. **Required change:** explicitly restore (or explicitly rmv) preselection from the saved `SelectionChanges` using `setPreselect(...)`/`rmvPreselect(...)`; ensure the replay path uses `clearPreSelect=false` where appropriate so it does not clobber the restored preselect; add a GTest comparing pre-fire vs post-fire `getPreselection()` in addition to `getCompleteSelection()`. (Severity note: preselection is transient hover state, so the user-visible impact is mild — but the plan explicitly CLAIMS snapshot-and-restore of preselection and does not deliver it, so the concern stays HIGH until the gate matches the claim.)
+
+- **[MEDIUM] The command-ID no-double-wrap undo test could accidentally exercise only the Python path.** "Python/command path" (03-03:131) is ambiguous; acceptance requires `PartDesign_MoveTip` to appear + no outer `openCommand` (03-03:142), but the undo assertion should explicitly run the COMMAND-ID path when the command is available, and separately run the Python fallback if used.
+
+- **[MEDIUM] Insert-at-bar same-transaction behavior is specified but not directly undo-tested.** The plan says insert + Tip policy happen in one transaction (03-03:130,:134) but acceptance only says "the policy holds" (03-03:145). Add an assertion that ONE undo reverses BOTH the `insertObject` placement and the same-transaction Tip change (proves they are genuinely one transaction, not two undo steps).
+
+### Risk Assessment
+
+Overall risk: **MEDIUM** (down from cycle-1 HIGH). The revised plans are much more executable and resolve the original architectural contradictions, but two gates still allow false positives: stock-tree scoping can pass on synthetic top-level items, and selection restoration can still leak preselection.
+
+- **03-01: MEDIUM-HIGH** — the spike gate is the foundation and currently does not prove real stock-DOM scoping (HIGH-A).
+- **03-02: MEDIUM** — depends on the 03-01 scoping assumption; the DnD base-first + delegate plans are otherwise credible.
+- **03-03: MEDIUM** — rollback/transaction/no-link mechanics are mostly sound, but `FwSelectionGuard` needs explicit preselection restore + stronger transaction tests (HIGH-B).
+
+---
+
+## Cycle-2 Consensus Summary
+
+Single external reviewer (Codex) this cycle, cross-checked against an independent 11/11 source-grounding pass; both converge. **5 of the 7 cycle-1 HIGH concerns are FULLY RESOLVED with real mechanism changes** (leak-grep token ban + grep gate; concrete projection-tree fallback; no-outer-transaction command-ID path; Python-only insertObject with explicit Tip policy; link-free type-name resolver with grep gates) — these are genuine fixes, not wording-only. **2 concerns are only PARTIALLY RESOLVED and remain open:**
+
+1. **(was concern 2) Scoping render topology** — the mechanism is right (`setHidden`), but the test/gate proves a synthetic top-level-item case, not the real nested `DocumentItem`→Body topology, and Origin-first is unproven. The `topLevelItem(i)` assumption is incorrect for the stock tree (grounding-confirmed: Bodies are children of the per-document `DocumentItem`).
+2. **(was concern 4) Preselection restore** — `FwSelectionGuard` snapshots preselection but the restore + the acceptance test only handle `getCompleteSelection()`; the clear+re-add path clears preselection by default, so the side-effect the guard exists to prevent persists. The `setPreselect`/`rmvPreselect` API exists but is unused.
+
+Two new MEDIUMs (explicit command-ID-path undo test; insert-at-bar single-undo test) are tightening suggestions, not blockers.
+
+### Agreed Strengths (cycle 2)
+- The revision made REAL mechanism changes for 5/7 HIGHs (verified against plan line + source), not cosmetic rewording.
+- Source grounding remains materially accurate (11/11 new symbols verified, 0 MISSING); the revision cites real seams at real locations, and notably reuses upstream's OWN link-free `getPropertyByName("Group")` reorder path (Tree.cpp:3266/3273).
+- The `setHidden` scoping mechanism and the projection-tree fallback are both grounded and credible engines.
+
+### Agreed Concerns (cycle 2 — both HIGH, both grounded)
+1. **Scoping topology gate is too shallow** — must traverse from `invisibleRootItem()` and be QTEST/live-proven on a real two-Body document with Origin-first, not synthetic top-level items.
+2. **Preselection is snapshotted but not restored** — use `setPreselect`/`rmvPreselect`, replay with `clearPreSelect=false`, and assert `getPreselection()` in the guard test.
+
+### Divergent Views
+None — single reviewer; the orchestrator's source-grounding pass agreed with Codex on every factual claim it could check, and independently confirmed BOTH surviving HIGHs (the nested `DocumentItem` topology and the `clearPreSelect=true` defaults). No contradictions.
+
+---
+
+## Recommended Next Step
+
+Feed this cycle-2 review back into planning:
+
+```
+/gsd-plan-phase 3 --reviews
+```
+
+**2 HIGH concerns remain unresolved this cycle (down from 7).** Re-plan to close them before executing Phase 3:
+- **HIGH-A:** rewrite `scopeToActiveBody()` to recurse from `invisibleRootItem()` (Bodies are nested under the document item, not top-level) and re-base the item-2 spike PASS on a real two-Body-document QTEST/live demo proving active-Body visible / non-active hidden / Origin-first.
+- **HIGH-B:** make `FwSelectionGuard` actually restore preselection (`setPreselect`/`rmvPreselect`, `clearPreSelect=false` on replay) and assert `getPreselection()` round-trips in the guard GTest.
+
+The two MEDIUMs (explicit command-ID undo path; insert-at-bar single-undo assertion) are worth folding into the same replan.
+
+---
+
+# ═══════════════════════════════════════════════════════════
+# CYCLE 1 — Initial Review (2026-06-14) — HISTORY
+# ═══════════════════════════════════════════════════════════
 
 **Reviewer:** Codex CLI (codex-cli 0.139.0, default model), independent adversarial pass.
 **Scope:** 03-01/03-02/03-03 PLAN.md + CONTEXT/RESEARCH/UI-SPEC/VALIDATION/PATTERNS context.
