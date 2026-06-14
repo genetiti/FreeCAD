@@ -54,8 +54,13 @@ public:
     FwWorkbench();
     ~FwWorkbench() override;
 
-    /** Install the FreeWorks dock shell, then run the standard activation. */
+    /** Install the FreeWorks dock shell, mount the ribbon + hide stock chrome,
+     * then run the standard activation. */
     void activated() override;
+
+    /** Restore the stock menu bar + toolbars and unmount the ribbon so other
+     * workbenches keep their chrome (reversible, FreeWorks-scoped — D-11). */
+    void deactivated() override;
 
 protected:
     /** Defer to the StdWorkbench menus (the FreeWorks ribbon arrives in Phase 2). */

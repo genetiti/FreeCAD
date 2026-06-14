@@ -53,7 +53,24 @@ void FwWorkbench::activated()
     // call site is live and discoverable rather than dead, never-referenced code.
     FwTheme::apply();
 
+    // Run the standard activation FIRST so the stock toolbars/menus exist before we
+    // hide them — then mount the ribbon as the single command surface and hide the
+    // stock chrome (D-11). mountRibbon() is idempotent (no duplicate wrapper on
+    // re-activation); hideStockChrome() snapshots the chrome so deactivated() can
+    // restore it exactly.
     StdWorkbench::activated();
+    FwLayout::mountRibbon();
+    FwLayout::hideStockChrome();
+}
+
+void FwWorkbench::deactivated()
+{
+    // Reverse activated() so stock workbenches keep their chrome (Pitfall 3): restore
+    // the snapshotted menu bar + toolbars, then remove the ribbon wrapper.
+    FwLayout::restoreStockChrome();
+    FwLayout::unmountRibbon();
+
+    StdWorkbench::deactivated();
 }
 
 Gui::MenuItem* FwWorkbench::setupMenuBar() const

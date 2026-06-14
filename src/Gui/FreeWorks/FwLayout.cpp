@@ -28,12 +28,36 @@
 // PCH (which transitively pulls in Gui/QtAll.h) to supply them: a non-PCH build
 // path, or a future trimming of QtAll.h, would otherwise break this TU (WR-04).
 #include <QLabel>
+#include <QList>
+#include <QMenuBar>
+#include <QToolBar>
 
+#include <Gui/Application.h>
+#include <Gui/Command.h>
 #include <Gui/DockWindowManager.h>
+#include <Gui/MainWindow.h>
+#include <Gui/ToolBarManager.h>
+#include <Gui/Workbench.h>
+#include <Gui/WorkbenchManager.h>
 
 #include "FwLayout.h"
+#include "FwRibbon.h"
 
 using namespace FreeWorksGui;
+
+// --- chrome snapshot statics (FreeWorks-scoped, reversible) -----------------
+QStringList FwLayout::s_hiddenToolBars;
+bool FwLayout::s_chromeHidden = false;
+bool FwLayout::s_menuBarWasVisible = true;
+bool FwLayout::s_menuBarWasNative = false;
+
+const char* FwLayout::ribbonToolBarObjectName()
+{
+    // Stable objectName so QMainWindow::saveState()/restoreState() serializes the
+    // wrapper toolbar (REVIEW concern 4) and so mountRibbon() can find-or-reuse it
+    // (idempotent re-activation — no duplicate ribbon).
+    return "Fw_RibbonToolBar";
+}
 
 namespace
 {
@@ -103,4 +127,165 @@ void FwLayout::install()
                "Fw_TaskPane",
                QObject::tr("Task Pane"),
                QObject::tr("Task Pane (Phase 7)"));
+}
+
+void FwLayout::mountRibbon()
+{
+    // Observe-the-DOM: reach the live main window through the public singleton.
+    // Gui::getMainWindow() returns MainWindow::getInstance(); MainWindow IS-A
+    // QMainWindow, so addToolBar()/toolBarArea()/saveState() are all available
+    // (MainWindow.h:398). Never edit MainWindow.cpp.
+    Gui::MainWindow* mw = Gui::getMainWindow();
+    if (mw == nullptr) {
+        return;
+    }
+
+    // Idempotent (REVIEW MEDIUM — no duplicate ribbon on reactivation): if the
+    // wrapper toolbar already exists on the main window, reuse it. findChild is an
+    // objectName lookup, so it matches the wrapper added on a prior activation.
+    QToolBar* existing = mw->findChild<QToolBar*>(
+        QString::fromUtf8(ribbonToolBarObjectName()));
+
+    // Build the ribbon for the active workbench. Prefer the curated map (D-05/D-06);
+    // if it derived nothing (no curated tab for this workbench) fall back to the live
+    // value-type toolbar list of the active workbench (D-07). buildFromCuratedMap()
+    // installs an empty-state tab when zero curated rows resolved, so we detect the
+    // "nothing curated" case by the absence of a real panel QToolBar.
+    auto* ribbon = new FwRibbon();
+    ribbon->buildFromCuratedMap();
+    bool curatedHasPanels = false;
+    for (int i = 0; i < ribbon->count(); ++i) {
+        if (!ribbon->widget(i)->findChildren<QToolBar*>().isEmpty()) {
+            curatedHasPanels = true;
+            break;
+        }
+    }
+    if (!curatedHasPanels) {
+        Gui::Workbench* wb = Gui::WorkbenchManager::instance() != nullptr
+            ? Gui::WorkbenchManager::instance()->active()
+            : nullptr;
+        if (wb != nullptr) {
+            ribbon->buildAutoDerived(wb->getToolbarItems());
+        }
+    }
+
+    if (existing != nullptr) {
+        // Reuse the existing wrapper: swap in the freshly built ribbon as its only
+        // widget so re-activation refreshes content without adding a 2nd toolbar.
+        for (QObject* child : existing->children()) {
+            if (auto* oldRibbon = qobject_cast<FwRibbon*>(child)) {
+                oldRibbon->deleteLater();
+            }
+        }
+        existing->clear();
+        existing->addWidget(ribbon);
+        existing->show();
+        return;
+    }
+
+    // WRAP the ribbon in a REAL Gui::ToolBar/QToolBar (ToolBarManager.h:124) so
+    // QMainWindow owns a genuine state participant (REVIEW concerns 3 & 4). Do NOT
+    // mount by fetching an "area widget" and adding the bare QTabWidget to it: the
+    // area-lookup helper takes a widget and RETURNS the area containing it (it is
+    // not a TopToolBarArea fetch), and an area-widget child QTabWidget would not
+    // round-trip through saveState() (ToolBarAreaWidget.cpp:121). addToolBar() with
+    // a real QToolBar is the only seam that persists.
+    auto* wrapper = new Gui::ToolBar(mw);
+    wrapper->setObjectName(QString::fromUtf8(ribbonToolBarObjectName()));
+    wrapper->setWindowTitle(QObject::tr("FreeWorks Ribbon"));
+    wrapper->setMovable(false);
+    wrapper->setFloatable(false);
+    wrapper->addWidget(ribbon);
+
+    mw->addToolBar(Qt::TopToolBarArea, wrapper);
+}
+
+void FwLayout::unmountRibbon()
+{
+    Gui::MainWindow* mw = Gui::getMainWindow();
+    if (mw == nullptr) {
+        return;
+    }
+    QToolBar* wrapper = mw->findChild<QToolBar*>(
+        QString::fromUtf8(ribbonToolBarObjectName()));
+    if (wrapper != nullptr) {
+        // Predictable teardown: detach from the main window so other workbenches do
+        // not inherit the ribbon, then schedule deletion of the wrapper + its ribbon.
+        mw->removeToolBar(wrapper);
+        wrapper->deleteLater();
+    }
+}
+
+void FwLayout::hideStockChrome()
+{
+    // Reversible + FreeWorks-scoped (Pitfall 3). Guard against a double-hide that
+    // would corrupt the snapshot (e.g. activated() called twice without a restore).
+    if (s_chromeHidden) {
+        return;
+    }
+    Gui::MainWindow* mw = Gui::getMainWindow();
+    if (mw == nullptr) {
+        return;
+    }
+    auto* tbm = Gui::ToolBarManager::getInstance();
+    if (tbm == nullptr) {
+        return;
+    }
+
+    // SNAPSHOT the toolbar names we are about to hide so restore is exact. Hide
+    // every real toolbar EXCEPT our own ribbon wrapper. setState() keys by name
+    // (ToolBarManager.cpp:1269), so we record names and replay them on restore.
+    s_hiddenToolBars.clear();
+    const QString ribbonName = QString::fromUtf8(ribbonToolBarObjectName());
+    const QList<QToolBar*> bars = mw->findChildren<QToolBar*>();
+    for (QToolBar* tb : bars) {
+        const QString name = tb->objectName();
+        if (name.isEmpty() || name == ribbonName) {
+            continue;
+        }
+        s_hiddenToolBars.append(name);
+    }
+    if (!s_hiddenToolBars.isEmpty()) {
+        tbm->setState(s_hiddenToolBars, Gui::ToolBarManager::State::ForceHidden);
+    }
+
+    // SNAPSHOT the menu-bar state, then hide. Restoring to EXACTLY this snapshot
+    // (rather than an unconditional reveal) avoids clobbering a prior
+    // fullscreen/native state on restore (REVIEW MEDIUM — macOS native menu bar).
+    if (QMenuBar* mb = mw->menuBar()) {
+        s_menuBarWasVisible = mb->isVisible();
+        s_menuBarWasNative = mb->isNativeMenuBar();
+        mb->hide();
+    }
+
+    s_chromeHidden = true;
+}
+
+void FwLayout::restoreStockChrome()
+{
+    if (!s_chromeHidden) {
+        return;
+    }
+    Gui::MainWindow* mw = Gui::getMainWindow();
+    auto* tbm = Gui::ToolBarManager::getInstance();
+    if (mw == nullptr || tbm == nullptr) {
+        return;
+    }
+
+    // Restore EXACTLY the toolbars we hid (not all toolbars) via the confirmed
+    // round-trip partner of ForceHidden (RESEARCH Q3 RESOLVED).
+    if (!s_hiddenToolBars.isEmpty()) {
+        tbm->setState(s_hiddenToolBars, Gui::ToolBarManager::State::RestoreDefault);
+    }
+    s_hiddenToolBars.clear();
+
+    // Restore the menu bar to the SNAPSHOT via setVisible(snapshot), NOT a bare
+    // unconditional reveal (REVIEW MEDIUM). On macOS the native-menu setting is
+    // part of that snapshot and is restored first.
+    if (QMenuBar* mb = mw->menuBar()) {
+        mb->setNativeMenuBar(s_menuBarWasNative);
+        mb->setVisible(s_menuBarWasVisible);
+    }
+
+    s_chromeHidden = false;
 }
