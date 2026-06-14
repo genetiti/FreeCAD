@@ -4,9 +4,13 @@
 #include <vector>
 
 #include <QAction>
+#include <QEvent>
+#include <QImage>
 #include <QKeySequence>
 #include <QList>
 #include <QModelIndex>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QStyleOptionViewItem>
 #include <QTest>
 #include <QTreeWidgetItem>
@@ -115,6 +119,45 @@ public:
         QStyleOptionViewItem opt;
         initStyleOption(&opt, index);
         return opt.text;
+    }
+};
+
+// Expose the protected rollback-band seams so the QTEST can assert the band paint and
+// the grab-zone hit-test without a live pointer-drag.
+class ProbeTree: public FreeWorksGui::FwFeatureTree
+{
+public:
+    explicit ProbeTree(const char* name, QWidget* parent)
+        : FreeWorksGui::FwFeatureTree(name, parent)
+    {}
+    int probeTipBoundaryY() const
+    {
+        return tipBoundaryY();
+    }
+    bool probeIsWithinGrabZone(int y) const
+    {
+        return isWithinGrabZone(y);
+    }
+    // Drive the hover affordance directly and report the resulting cursor shape so the
+    // QTEST can assert Qt::SizeVerCursor over the grab zone without a live mouse.
+    Qt::CursorShape probeHoverCursorAt(int y)
+    {
+        QMouseEvent move(QEvent::MouseMove,
+                         QPointF(4, y),
+                         QPointF(4, y),
+                         Qt::NoButton,
+                         Qt::NoButton,
+                         Qt::NoModifier);
+        mouseMoveEvent(&move);
+        return cursor().shape();
+    }
+    // Paint a single row through the overridden drawRow and report whether the band
+    // (a horizontal Highlight-coloured strip) appears at the given row rect.
+    void probeDrawRow(QPainter* painter,
+                      const QStyleOptionViewItem& option,
+                      const QModelIndex& index) const
+    {
+        drawRow(painter, option, index);
     }
 };
 }  // namespace
@@ -331,6 +374,109 @@ private Q_SLOTS:
         const QString bodyRendered = probe->renderedText(tree->indexFromItem(bodyItem));
         QVERIFY2(bodyRendered != FreeWorksGui::FwFeatureTreeDelegate::frontPlaneName(),
                  "a non-plane row must pass through (never a plane display name)");
+    }
+
+    // TREE-02 — the rollback band renders at the tip boundary, the grab zone reports
+    // Qt::SizeVerCursor, the below-tip rows carry the greyed kBelowTipRole flag (no
+    // show/hide write), and the three Roll context actions exist with the exact labels.
+    void test_RollbackBandRendersGreysBelowTipAndRollActions()
+    {
+        ensureRealMainWindow();
+
+        // A Body with two solid features; addObject advances the Tip to the last (Pad2).
+        Base::Interpreter().runString(
+            "import FreeCAD as App\n"
+            "import FreeCADGui as Gui\n"
+            "doc = App.newDocument('FwRollbackUiDoc')\n"
+            "Gui.activeDocument()\n"
+            "body = doc.addObject('PartDesign::Body', 'Body')\n"
+            "pad1 = doc.addObject('PartDesign::Pad', 'Pad1')\n"
+            "pad2 = doc.addObject('PartDesign::Pad', 'Pad2')\n"
+            "body.addObject(pad1)\n"
+            "body.addObject(pad2)\n"
+            "doc.recompute()\n"
+            "body.Tip = pad1\n"  // roll the tip back to Pad1 -> Pad2 is below-tip
+            "doc.recompute()\n");
+
+        App::Document* appDoc = App::GetApplication().getDocument("FwRollbackUiDoc");
+        QVERIFY2(appDoc != nullptr, "the rollback-ui document must exist");
+        App::DocumentObject* body = appDoc->getObject("Body");
+        App::DocumentObject* pad1 = appDoc->getObject("Pad1");
+        App::DocumentObject* pad2 = appDoc->getObject("Pad2");
+        QVERIFY(body != nullptr && pad1 != nullptr && pad2 != nullptr);
+
+        auto tree = std::make_unique<ProbeTree>("FwFeatureManager", nullptr);
+        Gui::Document* guiDoc = Gui::Application::Instance->getDocument(appDoc);
+        QVERIFY2(guiDoc != nullptr, "a Gui::Document must mirror the App::Document");
+        tree->setDocument(guiDoc);
+        tree->setActiveBody(body);
+        tree->scopeToActiveBody();
+        tree->resize(240, 320);
+        tree->show();
+        QVERIFY(QTest::qWaitForWindowExposed(tree.get()));
+
+        // The tip is Pad1; the band boundary is the bottom edge of the Pad1 row.
+        QCOMPARE(tree->currentTipFeature(), pad1);
+        const int boundary = tree->probeTipBoundaryY();
+        QVERIFY2(boundary >= 0, "the tip boundary must resolve to a laid-out row");
+
+        // Grab zone: a y within the 8px zone centred on the boundary reports
+        // Qt::SizeVerCursor (vertical draggability), and a y far away does not.
+        QVERIFY2(tree->probeIsWithinGrabZone(boundary),
+                 "the band centre must be inside the grab zone");
+        QCOMPARE(tree->probeHoverCursorAt(boundary), Qt::SizeVerCursor);
+        QVERIFY2(!tree->probeIsWithinGrabZone(boundary + 100),
+                 "a point far from the band must be outside the grab zone");
+
+        // Below-tip greying: after refresh, the row AFTER the tip (Pad2) carries the
+        // Gui-only kBelowTipRole flag; the tip row (Pad1) does not. No show/hide write.
+        tree->refreshBelowTipGreying();
+        QTreeWidgetItem* root = tree->invisibleRootItem();
+        QTreeWidgetItem* pad1Item = findItemByObjectName(root, "Pad1");
+        QTreeWidgetItem* pad2Item = findItemByObjectName(root, "Pad2");
+        QVERIFY(pad1Item != nullptr && pad2Item != nullptr);
+        const QVariant pad2Flag =
+            pad2Item->data(0, FreeWorksGui::FwFeatureTreeDelegate::kBelowTipRole);
+        const QVariant pad1Flag =
+            pad1Item->data(0, FreeWorksGui::FwFeatureTreeDelegate::kBelowTipRole);
+        QVERIFY2(pad2Flag.toBool(), "the row below the tip (Pad2) must carry the below-tip role");
+        QVERIFY2(!pad1Flag.toBool(), "the tip row (Pad1) must NOT be greyed");
+
+        // The band paints at the tip-boundary row: render the Pad1 row through drawRow
+        // into an image and assert a Highlight-coloured horizontal strip appears at the
+        // band thickness near the row bottom.
+        const QRect rowRect = tree->visualItemRect(pad1Item);
+        QVERIFY(rowRect.isValid());
+        QImage image(tree->viewport()->width(), rowRect.height() + 8, QImage::Format_ARGB32);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            QStyleOptionViewItem opt;
+            opt.rect = QRect(0, 0, tree->viewport()->width(), rowRect.height());
+            // Offset so opt.rect.bottom() matches the tip boundary the band keys on.
+            opt.rect.moveBottom(boundary);
+            opt.palette = tree->palette();
+            const QModelIndex index = tree->indexFromItem(pad1Item);
+            tree->probeDrawRow(&painter, opt, index);
+        }
+        const QColor highlight = tree->palette().color(QPalette::Highlight);
+        bool bandPainted = false;
+        for (int yy = 0; yy < image.height() && !bandPainted; ++yy) {
+            for (int xx = 0; xx < image.width(); ++xx) {
+                if (image.pixelColor(xx, yy) == highlight) {
+                    bandPainted = true;
+                    break;
+                }
+            }
+        }
+        QVERIFY2(bandPainted, "the 4px Highlight rollback band must paint at the tip boundary");
+
+        // The three Roll context actions carry the exact UI-SPEC labels.
+        QCOMPARE(FreeWorksGui::FwFeatureTree::rollBackLabel(), QStringLiteral("Roll Back"));
+        QCOMPARE(FreeWorksGui::FwFeatureTree::rollForwardLabel(), QStringLiteral("Roll Forward"));
+        QCOMPARE(FreeWorksGui::FwFeatureTree::rollToEndLabel(), QStringLiteral("Roll to End"));
+        QCOMPARE(FreeWorksGui::FwFeatureTree::rollbackBarTooltip(),
+                 QStringLiteral("Drag to roll the model back or forward"));
     }
 };
 

@@ -36,6 +36,8 @@ class QStyleOptionViewItem;
 class QModelIndex;
 class QTreeWidgetItem;
 class QDragMoveEvent;
+class QContextMenuEvent;
+class QAction;
 
 namespace App
 {
@@ -127,12 +129,54 @@ public:
     /// QTEST can assert the empty state without inspecting private state.
     bool isEmptyState() const;
 
+    /// The current Body.Tip feature (the single source of truth for the rollback band
+    /// position and the below-tip greying). Resolved link-free via the generic
+    /// App::PropertyLink "Tip" on the active Body. May be null (Tip = base / no Body).
+    App::DocumentObject* currentTipFeature() const;
+
+    /// The exact UI-SPEC § Copywriting context-action labels (exposed so the QTEST can
+    /// assert the three Roll actions are present with the precise text).
+    static QString rollBackLabel();
+    static QString rollForwardLabel();
+    static QString rollToEndLabel();
+
+    /// The grab-zone tooltip text (UI-SPEC § Copywriting). No trademark token.
+    static QString rollbackBarTooltip();
+
+    /// Re-stamp the Gui-only below-tip flag (FwFeatureTreeDelegate::kBelowTipRole) on
+    /// every row, greying the rows that follow the current Tip in the Body's Group
+    /// order. Driven purely by Body.Tip — NEVER a Visibility/property write. Exposed so
+    /// the QTEST can assert the role without simulating a live drag.
+    void refreshBelowTipGreying();
+
 protected:
-    /// Presentation seam (Plan 03-03 paints the rollback band here). For the spike it
-    /// is a pass-through that defers entirely to the base TreeWidget rendering.
+    /// Vertical pixel position of the rollback band: the bottom edge of the tip-feature
+    /// row (where the band paints and the grab-zone hit-test centres). -1 if no Tip row
+    /// is currently laid out. Computed from the live row geometry (visualItemRect).
+    int tipBoundaryY() const;
+
+    /**
+     * Paint the 4px rollback band at the current Tip boundary (TREE-02). Calls the base
+     * Gui::TreeWidget::drawRow FIRST (the row content), then — for the row whose bottom
+     * edge is the tip boundary — overlays a QPalette::Highlight-derived band (no hex, no
+     * setStyleSheet). The band position is derived from the current Body.Tip (the single
+     * source of truth); when Tip moves the band repaints at the new boundary.
+     */
     void drawRow(QPainter* painter,
                  const QStyleOptionViewItem& option,
                  const QModelIndex& index) const override;
+
+    /// Set Qt::SizeVerCursor when the pointer is within the 8px grab zone centred on the
+    /// band (vertical draggability affordance); fall through to the base DnD affordance
+    /// otherwise. On grab-drag-release resolves the bar position and fires the Tip move.
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+
+    /// Right-click context menu: prepend the Roll Back / Roll Forward / Roll to End
+    /// actions (exact UI-SPEC labels) wired to the FwRollbackBar fire path, then defer to
+    /// the inherited menu for everything else.
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
     /**
      * DnD validity affordance (TREE-04, D-10/D-11/D-12; reviewer DnD-override concern).
@@ -164,8 +208,23 @@ private:
     /// only, NO setStyleSheet, NO hex color (UI-SPEC § Color; Phase 7 owns theming).
     void applySpikeMetrics();
 
+    /// Find the tree item for @p obj by descending the real nested topology. nullptr if
+    /// the object has no laid-out row (e.g. a hidden/non-active Body subtree).
+    QTreeWidgetItem* itemForObject(App::DocumentObject* obj) const;
+
+    /// True iff @p y is within the 8px grab zone centred on the current tip boundary.
+    bool isWithinGrabZone(int y) const;
+
+    /// Fire the resolved Tip move for the band's current vertical position via the
+    /// FwRollbackBar (under FwSelectionGuard, no outer transaction), then re-grey.
+    void fireRollbackForBandY(int y);
+
     Gui::Document* m_scopedDocument = nullptr;
     App::DocumentObject* m_activeBody = nullptr;
+
+    /// True while the user is dragging the rollback grab zone (set on press over the
+    /// grab zone, cleared on release). Distinguishes a band drag from a row drag.
+    bool m_draggingBand = false;
 };
 
 }  // namespace FreeWorksGui

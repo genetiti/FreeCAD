@@ -27,10 +27,15 @@
 // Include the Qt headers this TU uses unconditionally rather than relying on the PCH
 // (mirrors FwRibbon.cpp WR-04): <QTreeWidget> arrives via the Gui::TreeWidget base,
 // but the drawRow signature and the item API are named here explicitly.
+#include <QAction>
+#include <QContextMenuEvent>
 #include <QCursor>
 #include <QDragMoveEvent>
+#include <QMenu>
 #include <QModelIndex>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QRect>
 #include <QStyleOptionViewItem>
 #include <QTreeWidgetItem>
 
@@ -44,6 +49,7 @@
 
 #include "FwFeatureTree.h"
 #include "FwFeatureTreeDelegate.h"
+#include "FwRollbackBar.h"
 
 namespace FreeWorksGui
 {
@@ -194,13 +200,288 @@ std::vector<App::DocumentObject*> FwFeatureTree::activeBodyGroup() const
     return out;
 }
 
+App::DocumentObject* FwFeatureTree::currentTipFeature() const
+{
+    if (m_activeBody == nullptr) {
+        return nullptr;
+    }
+    // Link-free read of the Body's Tip (the single source of truth, BodyBase.h:54) via
+    // the generic App::PropertyLink — no PartDesign include.
+    const App::Property* prop = m_activeBody->getPropertyByName("Tip");
+    const auto* tip = dynamic_cast<const App::PropertyLink*>(prop);
+    return tip != nullptr ? tip->getValue() : nullptr;
+}
+
+QTreeWidgetItem* FwFeatureTree::itemForObject(App::DocumentObject* obj) const
+{
+    if (obj == nullptr) {
+        return nullptr;
+    }
+    // Descend the real nested topology from invisibleRootItem() resolving each row's App
+    // object via the public DocumentObjectItem::object() accessor (the same surface the
+    // scope render uses) — never iterate top-level rows for a Body.
+    std::vector<QTreeWidgetItem*> stack;
+    QTreeWidgetItem* root = invisibleRootItem();
+    for (int i = 0; i < root->childCount(); ++i) {
+        stack.push_back(root->child(i));
+    }
+    while (!stack.empty()) {
+        QTreeWidgetItem* item = stack.back();
+        stack.pop_back();
+        if (objectOfItem(item) == obj) {
+            return item;
+        }
+        for (int i = 0; i < item->childCount(); ++i) {
+            stack.push_back(item->child(i));
+        }
+    }
+    return nullptr;
+}
+
+int FwFeatureTree::tipBoundaryY() const
+{
+    // The band sits at the BOTTOM edge of the tip-feature row (immediately below it).
+    App::DocumentObject* tip = currentTipFeature();
+    QTreeWidgetItem* tipItem = itemForObject(tip);
+    if (tipItem == nullptr) {
+        return -1;
+    }
+    const QRect rect = visualItemRect(tipItem);
+    if (!rect.isValid()) {
+        return -1;
+    }
+    return rect.bottom();
+}
+
+bool FwFeatureTree::isWithinGrabZone(int y) const
+{
+    const int boundary = tipBoundaryY();
+    if (boundary < 0) {
+        return false;
+    }
+    // 8px grab zone centred on the band (UI-SPEC § Spacing).
+    const int half = FwRollbackBar::kGrabZonePx / 2;
+    return y >= (boundary - half) && y <= (boundary + half);
+}
+
+void FwFeatureTree::refreshBelowTipGreying()
+{
+    // Re-stamp the Gui-only below-tip flag (kBelowTipRole) the Plan-03-02 delegate
+    // greys with QPalette::Disabled. Driven purely by Body.Tip — NEVER a show/hide
+    // property write (D-06, Pitfall 3). Rows AFTER the tip in the Body's Group order are flagged
+    // below-tip; the tip row and earlier rows are cleared.
+    if (m_activeBody == nullptr) {
+        return;
+    }
+    App::DocumentObject* tip = currentTipFeature();
+    const std::vector<App::DocumentObject*> group = activeBodyGroup();
+
+    bool pastTip = false;
+    for (App::DocumentObject* obj : group) {
+        QTreeWidgetItem* item = itemForObject(obj);
+        if (item != nullptr) {
+            item->setData(0, FwFeatureTreeDelegate::kBelowTipRole, pastTip);
+        }
+        if (obj == tip) {
+            pastTip = true;  // everything strictly AFTER the tip greys
+        }
+    }
+}
+
 void FwFeatureTree::drawRow(QPainter* painter,
                             const QStyleOptionViewItem& option,
                             const QModelIndex& index) const
 {
-    // Presentation seam reserved for Plan 03-03's rollback band. For the spike this is
-    // a pure pass-through: the inherited rendering is unchanged.
+    // Row content first (inherited rendering), then overlay the rollback band on the
+    // row whose bottom edge is the current tip boundary.
     Gui::TreeWidget::drawRow(painter, option, index);
+
+    const int boundary = tipBoundaryY();
+    if (boundary < 0 || painter == nullptr) {
+        return;
+    }
+    // Only the row whose bottom edge equals the tip boundary paints the band (so it is
+    // drawn exactly once, at the tip-feature row).
+    if (option.rect.bottom() != boundary) {
+        return;
+    }
+    // 4px band spanning the tree width, using a QPalette::Highlight-derived tone — no
+    // hex, no inline stylesheet (UI-SPEC § Color; Phase 7 owns theming).
+    const QColor band = option.palette.color(QPalette::Highlight);
+    QRect bandRect(0,
+                   boundary - (FwRollbackBar::kBandThicknessPx / 2),
+                   viewport()->width(),
+                   FwRollbackBar::kBandThicknessPx);
+    painter->save();
+    painter->fillRect(bandRect, band);
+    painter->restore();
+}
+
+void FwFeatureTree::mouseMoveEvent(QMouseEvent* event)
+{
+    // Vertical-drag affordance: SizeVerCursor over the 8px grab zone centred on the band.
+    if (m_draggingBand || isWithinGrabZone(event->pos().y())) {
+        setCursor(Qt::SizeVerCursor);
+        if (m_draggingBand) {
+            // Live re-grey while dragging so rows grey/un-grey as the band crosses them.
+            refreshBelowTipGreying();
+            viewport()->update();
+            event->accept();
+            return;
+        }
+    }
+    else {
+        unsetCursor();
+    }
+    Gui::TreeWidget::mouseMoveEvent(event);
+}
+
+void FwFeatureTree::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && isWithinGrabZone(event->pos().y())) {
+        m_draggingBand = true;
+        setCursor(Qt::SizeVerCursor);
+        event->accept();
+        return;
+    }
+    Gui::TreeWidget::mousePressEvent(event);
+}
+
+void FwFeatureTree::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (m_draggingBand) {
+        m_draggingBand = false;
+        unsetCursor();
+        // Resolve the band's vertical position to a solid feature and fire the REAL Tip
+        // move (FwRollbackBar, under FwSelectionGuard, single transaction).
+        fireRollbackForBandY(event->pos().y());
+        event->accept();
+        return;
+    }
+    Gui::TreeWidget::mouseReleaseEvent(event);
+}
+
+void FwFeatureTree::fireRollbackForBandY(int y)
+{
+    if (m_activeBody == nullptr) {
+        return;
+    }
+    // Map the band's vertical position to a Group-order row index: count how many
+    // feature rows lie above y, then resolve the snap target (link-free) and fire.
+    const std::vector<App::DocumentObject*> group = activeBodyGroup();
+    std::size_t positionRow = 0;
+    for (App::DocumentObject* obj : group) {
+        QTreeWidgetItem* item = itemForObject(obj);
+        if (item == nullptr) {
+            continue;
+        }
+        const QRect rect = visualItemRect(item);
+        if (rect.isValid() && rect.center().y() < y) {
+            ++positionRow;
+        }
+    }
+
+    FwRollbackBar bar;
+    App::DocumentObject* target = bar.resolveTipTarget(positionRow, group);
+    bar.fireTipMove(m_activeBody, target);
+    refreshBelowTipGreying();
+    viewport()->update();
+}
+
+void FwFeatureTree::contextMenuEvent(QContextMenuEvent* event)
+{
+    // The clicked feature (Roll Back targets it). Resolve from the item under the cursor.
+    QTreeWidgetItem* clickedItem = itemAt(event->pos());
+    App::DocumentObject* clicked = objectOfItem(clickedItem);
+
+    QMenu menu(this);
+
+    // The three reference-CAD Roll context actions (exact UI-SPEC § Copywriting labels),
+    // each wired to the FwRollbackBar fire path (under the guard, no outer transaction).
+    QAction* rollBack = menu.addAction(rollBackLabel());
+    QAction* rollForward = menu.addAction(rollForwardLabel());
+    QAction* rollToEnd = menu.addAction(rollToEndLabel());
+    menu.addSeparator();
+
+    App::DocumentObject* body = m_activeBody;
+    const std::vector<App::DocumentObject*> group = activeBodyGroup();
+
+    QObject::connect(rollBack, &QAction::triggered, this, [this, body, clicked]() {
+        if (body == nullptr) {
+            return;
+        }
+        FwRollbackBar bar;
+        // Roll Back: set the tip to the clicked feature (snapping to a solid).
+        std::size_t row = 0;
+        const std::vector<App::DocumentObject*> g = activeBodyGroup();
+        for (std::size_t i = 0; i < g.size(); ++i) {
+            if (g[i] == clicked) {
+                row = i + 1;  // include the clicked row so it can become the tip
+                break;
+            }
+        }
+        bar.fireTipMove(body, bar.resolveTipTarget(row, g));
+        refreshBelowTipGreying();
+        viewport()->update();
+    });
+
+    QObject::connect(rollForward, &QAction::triggered, this, [this, body]() {
+        if (body == nullptr) {
+            return;
+        }
+        FwRollbackBar bar;
+        // Roll Forward: step the tip one solid feature toward the end.
+        App::DocumentObject* tip = currentTipFeature();
+        const std::vector<App::DocumentObject*> g = activeBodyGroup();
+        App::DocumentObject* nextSolid = nullptr;
+        bool seenTip = (tip == nullptr);
+        for (App::DocumentObject* obj : g) {
+            if (seenTip && bar.isSolidByTypeName(obj)) {
+                nextSolid = obj;
+                break;
+            }
+            if (obj == tip) {
+                seenTip = true;
+            }
+        }
+        if (nextSolid != nullptr) {
+            bar.fireTipMove(body, nextSolid);
+            refreshBelowTipGreying();
+            viewport()->update();
+        }
+    });
+
+    QObject::connect(rollToEnd, &QAction::triggered, this, [this, body]() {
+        if (body == nullptr) {
+            return;
+        }
+        FwRollbackBar bar;
+        bar.rollToEnd(body);  // restores forward to the last solid feature (reversibility)
+        refreshBelowTipGreying();
+        viewport()->update();
+    });
+
+    menu.exec(event->globalPos());
+}
+
+QString FwFeatureTree::rollBackLabel()
+{
+    return tr("Roll Back");
+}
+
+QString FwFeatureTree::rollForwardLabel()
+{
+    return tr("Roll Forward");
+}
+
+QString FwFeatureTree::rollToEndLabel()
+{
+    return tr("Roll to End");
+}
+
+QString FwFeatureTree::rollbackBarTooltip()
+{
+    return tr("Drag to roll the model back or forward");
 }
 
 void FwFeatureTree::applySpikeMetrics()
@@ -218,6 +499,12 @@ void FwFeatureTree::applySpikeMetrics()
     // is parented to this tree so it resolves rows via itemFromIndex() (the stock
     // item-object path). setItemDelegate takes ownership of the delegate.
     setItemDelegate(new FwFeatureTreeDelegate(this));
+
+    // Track the pointer so the grab-zone SizeVerCursor affordance fires on hover, and
+    // surface the rollback-bar tooltip on the viewport (UI-SPEC § Copywriting).
+    setMouseTracking(true);
+    viewport()->setMouseTracking(true);
+    viewport()->setToolTip(rollbackBarTooltip());
 }
 
 QString FwFeatureTree::noActiveBodyText()
