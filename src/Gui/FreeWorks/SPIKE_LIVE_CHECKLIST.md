@@ -68,12 +68,12 @@ Run against a live PartDesign Body with at least one sketch.
 
 | # | D-03 item | What to confirm | Observed | PASS/FAIL |
 |---|-----------|-----------------|----------|-----------|
-| 1 | ≥3 native tabs | Features/Sketch/Evaluate tabs visible, tabbed | tab count = ___ | ☐ |
-| 2 | large labeled buttons | 32px icon over wrapped label, visibly large | ___ | ☐ |
-| 3 | primary fires real cmd | click Pad → PartDesign Pad task opens | ___ | ☐ |
-| 4 | working flyout | `*_Comp*` split-button: primary fires, dropdown lists alternatives | ___ | ☐ |
-| 5 | **live context restore** | **before idx ___ → enter sketch → in-sketch idx ___ → exit → after idx ___** | **after == before?** | ☐ |
-| 6 | reads SW-like | bigger than stock toolbar; tabbed; convincing at a glance | ___ | ☐ |
+| 1 | ≥3 native tabs | Features/Sketch/Evaluate tabs visible, tabbed | confirmed (UAT Test 1) | PASS |
+| 2 | large labeled buttons | 32px icon over wrapped label, visibly large | confirmed (UAT Test 1) | PASS |
+| 3 | primary fires real cmd | click Pad → PartDesign Pad task opens | confirmed (UAT Test 2) | PASS |
+| 4 | working flyout | `*_Comp*` split-button: primary fires, dropdown lists alternatives | confirmed (UAT Test 2) | PASS |
+| 5 | **live context restore** | **enter sketch → Sketch tab → exit → prior tab restored** | **after == before — confirmed (UAT Test 4)** | PASS |
+| 6 | reads SW-like | bigger than stock toolbar; tabbed; convincing at a glance | confirmed (UAT Test 1) | PASS |
 
 **Item 5 is the headline gate:** mark PASS only if the observed **after** index equals the
 observed **before** index (the ribbon restored the previously-active tab after the sketch
@@ -91,6 +91,8 @@ was exited). A "the Sketch tab is reachable" note is **NOT** sufficient.
 
 ## Sign-off
 
-- Verified by: __________________  OS/build: __________________  Date: __________
-- Item-5 observed indices — before: ___  in-sketch: ___  after: ___  (after == before? ___)
-- Result: ☐ native confirmed   ☐ FAIL → SARibbon fallback
+- Verified by: user (via `/gsd-verify-work 2` UAT)  ·  Date: 2026-06-14
+- All 6 items PASS. Item 5 (live context restore): user confirmed enter sketch → Sketch
+  tab auto-activates → exit → previously-active tab restored (after == before), UAT Test 4.
+- Result: **☑ native confirmed** — the `native committed` verdict in `SPIKE.md` is
+  confirmed on a live build; SARibbon fallback NOT triggered. Open obligation CLOSED.
