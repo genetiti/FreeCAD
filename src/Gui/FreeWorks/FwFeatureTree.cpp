@@ -24,6 +24,9 @@
 
 #include "PreCompiled.h"
 
+#include <cstdlib>
+#include <unordered_map>
+
 // Include the Qt headers this TU uses unconditionally rather than relying on the PCH
 // (mirrors FwRibbon.cpp WR-04): <QTreeWidget> arrives via the Gui::TreeWidget base,
 // but the drawRow signature and the item API are named here explicitly.
@@ -276,11 +279,34 @@ void FwFeatureTree::refreshBelowTipGreying()
     App::DocumentObject* tip = currentTipFeature();
     const std::vector<App::DocumentObject*> group = activeBodyGroup();
 
+    // Build the obj->item lookup with ONE tree traversal instead of a full DFS per Group
+    // member: refreshBelowTipGreying() runs on every mouseMoveEvent while the band is
+    // dragged, so the prior per-object itemForObject() was O(rows * group) each frame.
+    std::unordered_map<const App::DocumentObject*, QTreeWidgetItem*> itemByObject;
+    std::vector<QTreeWidgetItem*> stack;
+    QTreeWidgetItem* root = invisibleRootItem();
+    for (int i = 0; i < root->childCount(); ++i) {
+        stack.push_back(root->child(i));
+    }
+    while (!stack.empty()) {
+        QTreeWidgetItem* item = stack.back();
+        stack.pop_back();
+        if (App::DocumentObject* obj = objectOfItem(item)) {
+            itemByObject.emplace(obj, item);
+        }
+        for (int i = 0; i < item->childCount(); ++i) {
+            stack.push_back(item->child(i));
+        }
+    }
+
+    // Same below-tip semantics as before: rows strictly AFTER the tip in Group order are
+    // flagged below-tip; the tip row and earlier rows are cleared. Only Group members are
+    // stamped (lookup miss = not a tree row to flag).
     bool pastTip = false;
     for (App::DocumentObject* obj : group) {
-        QTreeWidgetItem* item = itemForObject(obj);
-        if (item != nullptr) {
-            item->setData(0, FwFeatureTreeDelegate::kBelowTipRole, pastTip);
+        auto found = itemByObject.find(obj);
+        if (found != itemByObject.end()) {
+            found->second->setData(0, FwFeatureTreeDelegate::kBelowTipRole, pastTip);
         }
         if (obj == tip) {
             pastTip = true;  // everything strictly AFTER the tip greys
@@ -300,9 +326,10 @@ void FwFeatureTree::drawRow(QPainter* painter,
     if (boundary < 0 || painter == nullptr) {
         return;
     }
-    // Only the row whose bottom edge equals the tip boundary paints the band (so it is
-    // drawn exactly once, at the tip-feature row).
-    if (option.rect.bottom() != boundary) {
+    // Only the row whose bottom edge is the tip boundary paints the band (so it is drawn
+    // exactly once, at the tip-feature row). A 1px tolerance guards against option.rect
+    // and visualItemRect() (the two separately-computed sources) differing by a pixel.
+    if (std::abs(option.rect.bottom() - boundary) > 1) {
         return;
     }
     // 4px band spanning the tree width, using a QPalette::Highlight-derived tone — no
@@ -401,6 +428,12 @@ void FwFeatureTree::contextMenuEvent(QContextMenuEvent* event)
     QAction* rollBack = menu.addAction(rollBackLabel());
     QAction* rollForward = menu.addAction(rollForwardLabel());
     QAction* rollToEnd = menu.addAction(rollToEndLabel());
+    // The Roll actions only make sense with an active Body; grey them out otherwise (the
+    // handlers already guard on body==nullptr, but a live-looking menu reads as a bug).
+    const bool hasBody = (m_activeBody != nullptr);
+    rollBack->setEnabled(hasBody);
+    rollForward->setEnabled(hasBody);
+    rollToEnd->setEnabled(hasBody);
     menu.addSeparator();
 
     App::DocumentObject* body = m_activeBody;
