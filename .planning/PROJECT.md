@@ -23,11 +23,15 @@ A SolidWorks user can open it and be immediately productive — it *looks* like 
 - ✓ FCStd document save/restore and transaction-based undo/redo — existing
 - ✓ Cross-platform build for Windows, macOS, and Linux (CMake + Pixi/Conda, version 1.2.0-dev) — existing
 
+<!-- Fork-delivered SolidWorks-parity capabilities, validated by phase verification + UAT. -->
+
+- ✓ SolidWorks-mode shell + SolidWorks **mouse navigation** default (FwWorkbench, tri-OS) — Phase 1 (SHELL-01/02, NAV-01)
+- ✓ SolidWorks-style **CommandManager ribbon** — tabbed Features/Sketch/Evaluate, large labeled buttons, flyout split-buttons, context-driven tab switching, replaces FreeCAD menus+toolbars in FreeWorks mode — Phase 2 (RIBBON-01, RIBBON-02; UAT 5/5, security 13/13)
+
 ### Active
 
 <!-- The SolidWorks-parity goals. Hypotheses until shipped and validated against real SW users. -->
 
-- [ ] SolidWorks-style **CommandManager ribbon** (tabbed: Features / Sketch / Evaluate / etc.) replaces FreeCAD's menus and toolbars
 - [ ] SolidWorks-style **FeatureManager design tree** — ordered feature history with a rollback bar
 - [ ] SolidWorks-style **PropertyManager** — left-side panel that slides in with contextual options when running a command or editing a feature
 - [ ] SolidWorks **mouse navigation** (rotate / pan / zoom), **selection model**, selection filters, and context toolbars
@@ -70,6 +74,8 @@ A SolidWorks user can open it and be immediately productive — it *looks* like 
 | Fork from current `main` (1.2.0-dev) | Newest internals; accept upstream-tracking cost over starting from an older stable base | — Pending |
 | Recreate look-alike assets instead of copying SW assets | Achieve visual parity while avoiding proprietary-asset legal risk | — Pending |
 | Support Windows + macOS + Linux | Reach SW users (mostly Windows) without dropping FreeCAD's cross-platform reach | — Pending |
+| Build the ribbon natively on Qt (QTabWidget + QToolBar) rather than vendoring SARibbon | Spike confirmed native reaches the SolidWorks-parity bar (D-03); zero new deps, best upstream-merge story | ✓ Phase 2 — native committed, SARibbon shelved |
+| Drive the ribbon from FreeCAD's existing command registry via a curated declarative map + auto-derive fallback | No duplicated command backend; merge-safe data file; never-empty ribbon on uncurated workbenches | ✓ Phase 2 — RIBBON-01 shipped |
 
 ## Evolution
 
@@ -89,4 +95,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 after initialization*
+*Last updated: 2026-06-14 after Phase 2 (CommandManager Ribbon)*
