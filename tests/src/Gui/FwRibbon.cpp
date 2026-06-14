@@ -10,6 +10,7 @@
 #include <Gui/Application.h>
 #include <Gui/Command.h>
 
+#include <src/Gui/FreeWorks/FwRibbonContext.h>
 #include <src/Gui/FreeWorks/FwRibbonMap.h>
 
 #include "FwTestGuiBootstrap.h"
@@ -143,4 +144,117 @@ TEST_F(FwRibbonResolutionTest, everyCuratedRowResolves)
     EXPECT_TRUE(sawEvaluate);
     // At least one flyout (*_Comp*) group id must be present for a downstream split-button.
     EXPECT_TRUE(sawComp);
+}
+
+// --- RIBBON-02 / Plan 02-04: FwRibbonContext pure switch logic --------------
+//
+// These exercise the PURE, headless-testable switch core (decideOnEnter /
+// decideOnReset / isSketchType) — no QWidget, so they live in Gui_tests_run with
+// the resolution tests above. They encode D-09/D-10 and the concern-7 state
+// machine (a nested sketch enter must NOT overwrite the remembered tab; a stray
+// reset must NOT force a stale tab). The ribbon-bound round-trip against a real
+// FwRibbon widget is covered in the widget target (FwRibbonWidget.cpp).
+
+namespace
+{
+// The view-provider type-name contract literal (RESEARCH Pitfall 2). Identifying a
+// sketch by this STRING keeps FreeWorks free of any Sketcher include. The literal
+// itself must be re-validated live (it is also asserted by isSketchType below).
+constexpr const char* kSketchVpTypeName = "SketcherGui::ViewProviderSketch";
+constexpr const char* kNonSketchVpTypeName = "PartDesignGui::ViewProviderBody";
+}  // namespace
+
+// isSketchType matches exactly the contract literal and nothing else.
+TEST(FwRibbonContextLogic, isSketchTypeMatchesOnlyTheContractLiteral)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    EXPECT_TRUE(ctx.isSketchType(kSketchVpTypeName));
+    EXPECT_FALSE(ctx.isSketchType(kNonSketchVpTypeName));
+    EXPECT_FALSE(ctx.isSketchType(""));
+    EXPECT_FALSE(ctx.isSketchType("SketcherGui::ViewProviderSketchExport"));
+}
+
+// Sketch-enter while inactive -> SwitchToSketch AND remembers the prior tab
+// (D-09 context wins / D-10 remember).
+TEST(FwRibbonContextLogic, sketchEnterSwitchesAndRemembersPrevious)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    EXPECT_FALSE(ctx.isContextActive());
+
+    const int priorTab = 0;  // e.g. user sitting on the Features tab
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::SwitchToSketch,
+              ctx.decideOnEnter(/*isSketch=*/true, priorTab));
+    EXPECT_TRUE(ctx.isContextActive());
+    EXPECT_EQ(priorTab, ctx.previousIndex());
+}
+
+// THE concern-7 regression guard: a SECOND sketch enter while already active is a
+// NoOp and must NOT re-stash previousIndex_ (otherwise reset would restore the
+// Sketch tab instead of the original pre-sketch tab).
+TEST(FwRibbonContextLogic, nestedSketchEnterIsNoOpAndKeepsRememberedTab)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    const int priorTab = 0;
+    ASSERT_EQ(FreeWorksGui::FwRibbonContext::TabAction::SwitchToSketch,
+              ctx.decideOnEnter(true, priorTab));
+    ASSERT_TRUE(ctx.isContextActive());
+    ASSERT_EQ(priorTab, ctx.previousIndex());
+
+    // A nested/repeated enter while contextActive_ — current index is now the Sketch
+    // tab (index 1). If the core re-stashed, previousIndex_ would become 1 and the
+    // original tab would be lost.
+    const int sketchTabIndex = 1;
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::NoOp,
+              ctx.decideOnEnter(true, sketchTabIndex));
+    EXPECT_TRUE(ctx.isContextActive());
+    EXPECT_EQ(priorTab, ctx.previousIndex()) << "nested sketch enter must not overwrite "
+                                                "the remembered tab (REVIEW concern 7)";
+}
+
+// Non-sketch enter -> NoOp and leaves contextActive_ untouched (D-09 sketch-only v1).
+TEST(FwRibbonContextLogic, nonSketchEnterIsNoOp)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::NoOp,
+              ctx.decideOnEnter(/*isSketch=*/false, 2));
+    EXPECT_FALSE(ctx.isContextActive());
+}
+
+// Reset while active -> RestorePrevious and clears contextActive_.
+TEST(FwRibbonContextLogic, resetWhileActiveRestoresPrevious)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    ctx.decideOnEnter(true, 0);
+    ASSERT_TRUE(ctx.isContextActive());
+
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::RestorePrevious,
+              ctx.decideOnReset());
+    EXPECT_FALSE(ctx.isContextActive());
+}
+
+// Reset while inactive -> NoOp (a stray reset never forces a stale tab — REVIEW MEDIUM).
+TEST(FwRibbonContextLogic, resetWhileInactiveIsNoOp)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    EXPECT_FALSE(ctx.isContextActive());
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::NoOp, ctx.decideOnReset());
+    EXPECT_FALSE(ctx.isContextActive());
+}
+
+// Context wins over a manual selection, and on exit the MANUAL tab is restored
+// (D-10 end-to-end through the pure core): user manually picks tab 2 (Evaluate),
+// enters a sketch (jumps to Sketch, remembers 2), leaves (restores 2).
+TEST(FwRibbonContextLogic, contextWinsOverManualThenRestoresManualTab)
+{
+    FreeWorksGui::FwRibbonContext ctx;
+    const int manualTab = 2;  // user clicked Evaluate
+
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::SwitchToSketch,
+              ctx.decideOnEnter(true, manualTab));
+    EXPECT_EQ(manualTab, ctx.previousIndex());
+
+    EXPECT_EQ(FreeWorksGui::FwRibbonContext::TabAction::RestorePrevious,
+              ctx.decideOnReset());
+    EXPECT_EQ(manualTab, ctx.previousIndex())
+        << "the manual tab is what gets restored on reset (D-10)";
 }
