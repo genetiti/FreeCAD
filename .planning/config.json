@@ -18,8 +18,12 @@
     "text_mode": false,
     "research_before_questions": true,
     "discuss_mode": "discuss",
-    "skip_discuss": false,
-    "use_worktrees": true
+    "skip_discuss": true,
+    "use_worktrees": true,
+    "plan_bounce": true,
+    "subagent_timeout": 1200,
+    "max_discuss_passes": 5,
+    "auto_prune_state": true
   },
   "plan_review": {
     "source_grounding": true,
@@ -30,10 +34,10 @@
   },
   "graphify": {
     "enabled": true,
-    "auto_update": false
+    "auto_update": true
   },
   "git": {
-    "branching_strategy": "phase",
+    "branching_strategy": "none",
     "quick_branch_template": null,
     "create_tag": true
   },

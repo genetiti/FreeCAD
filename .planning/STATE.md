@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 03-03-PLAN.md (closeout during /gsd-resume-work) — Phase 03 plans all executed; pending phase verification + transition
-last_updated: "2026-06-14"
-last_activity: "2026-06-14 -- Closed out Phase 03 Plan 03 (FwRollbackBar + FwSelectionGuard, link-free Body.Tip rollback, below-tip greying, Roll actions); TREE-02 done; next: verify/transition Phase 03 or plan Phase 04"
+status: planning
+stopped_at: Phase 3 verified (code-completion PASSED, live items deferred) + transitioned complete; Phase 4 context gathered, ready to plan
+last_updated: "2026-06-14T18:10:00.000Z"
+last_activity: "2026-06-14 -- Phase 03 verified (03-VERIFICATION.md, code PASS / live FEEL deferred) and transitioned complete; next: plan Phase 04 (PropertyManager)"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
   completed_plans: 11
-  percent: 40
+  percent: 43
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** A SolidWorks user can open FreeCAD and be immediately productive — it looks, navigates, and behaves like SolidWorks — with no FreeCAD tutorial required.
-**Current focus:** Phase 03 — featuremanager-design-tree
+**Current focus:** Phase 04 — propertymanager-panel
 
 ## Current Position
 
-Phase: 3 of 7 (featuremanager-design-tree) — ALL PLANS EXECUTED (Wave 3 complete); phase verification + transition pending
-Plan: 3 of 3 (03-01 done → 03-02 done → 03-03 done) — strictly sequential, complete
-Status: 03-03 (FwRollbackBar rollback-bar slice — link-free Body.Tip fire via the PartDesign_MoveTip command-ID under an RAII FwSelectionGuard, drawRow band + SizeVerCursor grab zone, Tip-driven below-tip greying, Roll Back/Forward/To End, insert-at-bar + explicit Tip policy) executed and closed out. TREE-02 done. All locally-verifiable acceptance criteria (grep + link-free guards + forbidden-token checks) and the leak-grep pass; ctest authored, NOT run, pending CI (no build tree in env). Phase-3 live FEEL obligations routed to SPIKE_LIVE_CHECKLIST.md.
-Last activity: 2026-06-14 -- Closed out Phase 03 Plan 03; next: verify/transition Phase 03, or plan Phase 04 (PropertyManager)
+Phase: 4 of 7 (propertymanager-panel) — context gathered (04-CONTEXT.md + 04-DISCUSSION-LOG.md), ready to PLAN. Phase 3 COMPLETE (verified + transitioned).
+Plan: none yet for Phase 04; Phase 03 closed at 3/3 (03-01 → 03-02 → 03-03).
+Status: Phase 03 verified — 03-VERIFICATION.md records code-completion PASSED (4/4 goal truths verified against actual src/Gui/FreeWorks source: real FwFeatureTree mount, PartDesign_MoveTip-driven rollback bar under RAII FwSelectionGuard, Tip-driven greying, DnD/F2/plane-remap, 17 headless tests CMake-wired, leak-grep clean). status=human_needed only for 5 environmentally-blocked live items (3D suppress-below FEEL, forbidden-cursor DnD, plane A1 orientation, SC5 daily-SW parity, run-ctest-on-build) — all deferred to SPIKE_LIVE_CHECKLIST.md + parity-user track, gating milestone sign-off not phase code completion. Consistent with Phase 1 & 2 precedent.
+Last activity: 2026-06-14 -- Phase 03 verified + transitioned complete; next: plan Phase 04 (PropertyManager)
 
-Progress: [████░░░░░░] Phase 3 plans all executed — 2 of 7 phases formally complete; Phase 3 verification pending (~40%)
+Progress: [████░░░░░░] 3 of 7 phases complete; Phase 4 context ready, planning next (~43%)
 
 ## Performance Metrics
 
@@ -132,6 +132,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14 (resumed)
-Stopped at: 03-03 closed out + code-reviewed + hardened + UAT recorded. Sequence this session: (1) closeout commits ec145d92cb/b2e13a523d; (2) config migration adopted 73b4fb329a; (3) code review of FwRollbackBar/FwSelectionGuard/drawRow — no blocking bugs (roll-to-base verified against real PartDesign_MoveTip); (4) /gsd-fast hardening 734979cf78 (obj→item single-DFS cache, 1px band tolerance, no-Body Roll-action greying); (5) /gsd-verify-work → 03-UAT.md: all 8 live-GUI tests blocked:release-build (no build tree), 0 issues, status=partial — Phase 3 INTENTIONALLY NOT transitioned (commit f77d97c899). Phase 03 code complete + source-verified; live UAT + SPIKE_LIVE_CHECKLIST gate the milestone parity sign-off. Next: live UAT on a real build, OR plan Phase 04 (PropertyManager — no CONTEXT.md yet).
-Resume file: None
+Last session: 2026-06-14T17:45:01.244Z
+Stopped at: Phase 4 context gathered (PropertyManager — user-delegated decisions, CONTEXT.md locked)
+Resume file: .planning/phases/04-propertymanager-panel/04-CONTEXT.md
