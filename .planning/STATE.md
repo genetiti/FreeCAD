@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 Plan 02-02 complete (curated map + full FwRibbon build — RIBBON-01 slice)
-last_updated: "2026-06-13T23:53:48.000Z"
-last_activity: 2026-06-13 -- Plan 02-02 closed; curated 3-tab ribbon + flyouts + auto-derive (Wave 2 done)
+stopped_at: Phase 2 Plan 02-03 complete (ribbon mounted as real QToolBar + chrome hide/restore + escape hatch + persistence)
+last_updated: "2026-06-14T00:04:00.000Z"
+last_activity: 2026-06-14 -- Plan 02-03 closed; FwRibbon mounted in TopToolBarArea, D-11/D-12/D-14 wired (Wave 3 done)
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 16
+  completed_plans: 7
+  percent: 18
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 02 (commandmanager-ribbon) — EXECUTING
-Plan: 3 of 4 (Wave 3 next — 02-03 mount/chrome/persistence)
-Status: Wave 2 complete (02-02) — curated 3-tab FwRibbon, working flyout split-buttons, D-07 auto-derive; RIBBON-01 slice fires real commands
-Last activity: 2026-06-13 -- Plan 02-02 closed; buildFromCuratedMap/buildAutoDerived/setCurrentTab ready for Plans 03/04
+Plan: 4 of 4 (Wave 4 next — 02-04 context tab switching via FwRibbonContext)
+Status: Wave 3 complete (02-03) — FwRibbon mounted as a real QToolBar (Fw_RibbonToolBar) in Qt::TopToolBarArea; reversible snapshot-driven stock-chrome hide/restore (D-11); "More commands…" overflow escape hatch (D-12); two-layer persistence (QMainWindow toolbar state + ParameterGrp tab-state key, D-14)
+Last activity: 2026-06-14 -- Plan 02-03 closed; mount/chrome/persistence/escape-hatch ready for Plan 04's context switcher (setCurrentTab seam)
 
-Progress: [█████░░░░░] 50% (2 of 4 plans)
+Progress: [███████░░░] 75% (3 of 4 plans)
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████░░░░░] 50% (2 of 4 plans)
 | Phase 01 P04 | 6 | 4 tasks | 6 files |
 | Phase 02 P01 | — | 3 tasks | 9 files |
 | Phase 02 P02 | — | 2 tasks | 7 files |
+| Phase 02 P03 | 6 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,11 @@ Recent decisions affecting current work:
 - [Phase 02]: [02-02]: Curated ribbon is a compile-time C++ table (FwRibbonRow {tab,panel,commandId} + std::span accessor) — 56 source-verified core-loop IDs placed as-is, no FreeCAD-only extras (D-08 strict); kKnownGaps intentionally empty so the per-row test stays a true typo guard
 - [Phase 02]: [02-02]: Auto-derive (D-07) consumes the LIVE value-type Workbench::getToolbarItems() list (NOT the transient setupToolBars() tree activate() deletes); literal "Separator" is the separator sentinel (REVIEW concern 5)
 - [Phase 02]: [02-02]: Flyout verified by inspecting the real QToolButton (MenuButtonPopup + menu>1 action), not getGroupCommands() metadata (REVIEW concern 8); unique Fw_RibbonPanel_<Tab>_<Panel> objectNames for D-14 persistence; build API buildFromCuratedMap/buildAutoDerived/setCurrentTab consumed by Plans 03/04
+- [Phase 02]: [02-03]: Ribbon mounted by WRAPPING FwRibbon in a real Gui::ToolBar (objectName Fw_RibbonToolBar) added via addToolBar(Qt::TopToolBarArea, wrapper) — a genuine QMainWindow::saveState participant; NOT toolBarAreaWidget/area-widget child (REVIEW concerns 3 & 4); mount is idempotent (find-or-reuse)
+- [Phase 02]: [02-03]: Stock chrome hide/restore is reversible + FreeWorks-scoped + SNAPSHOT-driven (hidden toolbar names + menu-bar visibility + macOS native-menu setting; ForceHidden/RestoreDefault round-trip), restore replays the snapshot, never an unconditional reveal (Pitfall 3 + macOS native-menu MEDIUM)
+- [Phase 02]: [02-03]: D-14 persistence is TWO-LAYER — toolbar presence/area/order via QMainWindow saveState (real QToolBar); selected tab persisted SEPARATELY via ParameterGrp key User parameter:BaseApp/Preferences/FreeWorks/Ribbon (currentTab int) because saveState does not cover a QTabWidget's selected tab (REVIEW concern 4)
+- [Phase 02]: [02-03]: D-12 escape hatch = pinned "More commands…" tab-bar corner widget (QToolButton + lazy QMenu from getAllCommands() grouped by module, each the command's existing QAction) + the baseline that QAction shortcuts survive menuBar()->hide(); no command stranded
+- [Phase 02]: [02-03]: Live ctest + true-restart persistence + live menu-bar/macOS native-menu round-trip deferred (no build tree/GUI in env); headless QTEST_MAIN assertions authored compile-intended (mount area, idempotent remount, chrome round-trip, overflow reachable, saveState area round-trip, tab-index restore); leak-grep clean
 
 ### Pending Todos
 
@@ -104,6 +110,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-13T23:53:48.000Z
-Stopped at: Completed 02-02-PLAN.md (curated map + full FwRibbon build — RIBBON-01 slice)
-Resume file: .planning/phases/02-commandmanager-ribbon/02-03-PLAN.md
+Last session: 2026-06-14T00:04:00.000Z
+Stopped at: Completed 02-03-PLAN.md (ribbon mount + chrome hide/restore + escape hatch + two-layer persistence)
+Resume file: .planning/phases/02-commandmanager-ribbon/02-04-PLAN.md

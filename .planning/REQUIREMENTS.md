@@ -18,7 +18,7 @@ The user chose **full parity** for v1 — the complete SolidWorks part-modeling 
 
 ### CommandManager (Ribbon)
 
-- [ ] **RIBBON-01**: User sees a tabbed CommandManager ribbon at the top (Features / Sketch / Evaluate / …) with large labeled icons and flyout split-buttons, driven by FreeCAD's command registry *(T1)*
+- [x] **RIBBON-01**: User sees a tabbed CommandManager ribbon at the top (Features / Sketch / Evaluate / …) with large labeled icons and flyout split-buttons, driven by FreeCAD's command registry *(T1)*
 - [ ] **RIBBON-02**: The active ribbon tab switches by context (e.g. the Sketch tab activates on entering a sketch) *(T1/T10)*
 
 ### FeatureManager Design Tree
@@ -99,7 +99,7 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | SHELL-01 | Phase 1 | Complete |
 | SHELL-02 | Phase 1 | Complete |
 | NAV-01 | Phase 1 | Complete |
-| RIBBON-01 | Phase 2 | Pending |
+| RIBBON-01 | Phase 2 | Complete |
 | RIBBON-02 | Phase 2 | Pending |
 | TREE-01 | Phase 3 | Pending |
 | TREE-02 | Phase 3 | Pending |

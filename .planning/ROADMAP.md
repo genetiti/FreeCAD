@@ -68,7 +68,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — Mount in top area, reversible chrome hiding, discoverability escape hatch, layout persistence (RIBBON-01)
+- [x] 02-03-PLAN.md — Mount in top area (real QToolBar Fw_RibbonToolBar), reversible chrome hiding, discoverability escape hatch, two-layer persistence (RIBBON-01)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
