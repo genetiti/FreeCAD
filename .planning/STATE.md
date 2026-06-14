@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 Phase: 02 (commandmanager-ribbon) — IMPLEMENTATION COMPLETE (4 of 4 plans); pending deferred live-build/GUI verification before phase gate
 Plan: 4 of 4 (02-04 done — context tab switching via FwRibbonContext)
 Status: Wave 4 complete (02-04) — FwRibbonContext subscribes to Gui::Application signalInEdit/signalResetEdit and drives the active ribbon tab (RIBBON-02): entering a sketch activates the Sketch tab (context wins, D-10), leaving restores the prior tab; explicit contextActive_ state machine (nested enter NoOp, stray reset NoOp — concern 7); sketch identity by type-name string only (no Sketcher link, Pitfall 2); QPointer guard; FwLayout owns/tears-down the context. Phase 2 (RIBBON-01 + RIBBON-02) implementation complete.
-Last activity: 2026-06-14 -- Plan 02-04 closed; all Phase-2 plans done. Remaining: deferred CI/tri-OS + SPIKE_LIVE_CHECKLIST sign-off (no build tree in env)
+Last activity: 2026-06-14 -- All Phase-2 plans done; phase-goal verification = human_needed (4/5 source-verified; 5 live-GUI items → 02-UAT.md); code review resolved (4 blockers fixed incl. FwRibbonMap compile error, CR-01 rejected as false positive). Phase NOT yet gated — awaiting live UAT (no build tree in env).
 
-Progress: [██████████] 100% (4 of 4 plans — Phase 2 implementation)
+Progress: [██████████] 100% (4 of 4 plans implemented — phase gate pending live UAT via /gsd-verify-work 2)
 
 ## Performance Metrics
 
