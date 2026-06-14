@@ -31,6 +31,7 @@
 #include <QList>
 #include <QMap>
 #include <QMenu>
+#include <QScopedValueRollback>
 #include <QSize>
 #include <QString>
 #include <QToolBar>
@@ -218,7 +219,12 @@ void FwRibbon::showEmptyState()
 
 void FwRibbon::buildFromCuratedMap()
 {
-    m_suppressTabStateSave = true;
+    // CR-02: RAII guard — restores the flag on scope exit, INCLUDING on a throw
+    // during clear/rebuild, so a stuck-true flag can never silently drop every
+    // future tab-state save. Stays active through restoreTabState() below (a
+    // redundant re-save of the just-restored index is correctly suppressed) and
+    // rolls back to the prior value when this function returns.
+    QScopedValueRollback<bool> suppressGuard(m_suppressTabStateSave, true);
     clearTabs();
 
     Gui::CommandManager& manager = Gui::Application::Instance->commandManager();
@@ -247,16 +253,20 @@ void FwRibbon::buildFromCuratedMap()
         showEmptyState();
     }
 
-    // D-14: re-apply the persisted selected tab after a (re)build, then re-enable
-    // user-driven persistence.
-    m_suppressTabStateSave = false;
+    // D-14: re-apply the persisted selected tab after a (re)build. suppressGuard
+    // (above) keeps saves suppressed through this restore and rolls back on return.
     restoreTabState();
 }
 
 void FwRibbon::buildAutoDerived(
     const std::list<std::pair<std::string, std::list<std::string>>>& toolbarGroups)
 {
-    m_suppressTabStateSave = true;
+    // CR-02: RAII guard — restores the flag on scope exit, INCLUDING on a throw
+    // during clear/rebuild, so a stuck-true flag can never silently drop every
+    // future tab-state save. Stays active through restoreTabState() below (a
+    // redundant re-save of the just-restored index is correctly suppressed) and
+    // rolls back to the prior value when this function returns.
+    QScopedValueRollback<bool> suppressGuard(m_suppressTabStateSave, true);
     clearTabs();
 
     Gui::CommandManager& manager = Gui::Application::Instance->commandManager();
@@ -289,9 +299,8 @@ void FwRibbon::buildAutoDerived(
         showEmptyState();
     }
 
-    // D-14: re-apply the persisted selected tab after a (re)build, then re-enable
-    // user-driven persistence.
-    m_suppressTabStateSave = false;
+    // D-14: re-apply the persisted selected tab after a (re)build. suppressGuard
+    // (above) keeps saves suppressed through this restore and rolls back on return.
     restoreTabState();
 }
 

@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include <Gui/Workbench.h>
-
 #include "PreCompiled.h"
+
+#include <Gui/Workbench.h>
 
 namespace FreeWorksGui
 {

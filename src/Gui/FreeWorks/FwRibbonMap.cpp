@@ -45,7 +45,10 @@ namespace
 // downstream. Reference-CAD-with-no-FreeCAD-equivalent gaps are noted as `// gap:`
 // comments rather than fabricated/unresolvable IDs — there is no swallowing
 // allow-list, so the per-row resolution test stays a true typo guard.
-constexpr std::array<FwRibbonRow, 56> kRows = {{
+// Size is DEDUCED via std::to_array — a hand-counted std::array<…, N> drifts the
+// moment a row is added/removed (an ill-formed-program compile error), and this
+// fork has no local build to catch it. to_array makes the count self-maintaining.
+constexpr auto kRows = std::to_array<FwRibbonRow>({
     // ---------------------------------------------------------------- Features
     // Owned by PartDesignGui (PartDesign/Gui/Workbench.cpp); the dress-up IDs at
     // Workbench.cpp:177,208; additive/subtractive/pattern groups at 487-526.
@@ -142,7 +145,7 @@ constexpr std::array<FwRibbonRow, 56> kRows = {{
     // direct 1:1 FreeCAD core command — intentionally NOT placed (no fabricated ID).
     // gap: the reference-CAD "Section View" lives on the heads-up view toolbar, not
     // the CommandManager ribbon — out of scope for the curated core-loop map here.
-}};
+});
 
 }  // namespace
 

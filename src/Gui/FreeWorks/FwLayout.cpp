@@ -157,7 +157,11 @@ void FwLayout::mountRibbon()
     // value-type toolbar list of the active workbench (D-07). buildFromCuratedMap()
     // installs an empty-state tab when zero curated rows resolved, so we detect the
     // "nothing curated" case by the absence of a real panel QToolBar.
-    auto* ribbon = new FwRibbon();
+    // WR-02: hold the freshly built ribbon in a unique_ptr so a throw anywhere
+    // between construction and the addWidget() ownership transfer cannot leak it
+    // (the ribbon has no QObject parent until adopted). release() at each adopt site.
+    auto ribbonOwner = std::make_unique<FwRibbon>();
+    FwRibbon* ribbon = ribbonOwner.get();
     ribbon->buildFromCuratedMap();
     bool curatedHasPanels = false;
     for (int i = 0; i < ribbon->count(); ++i) {
@@ -184,7 +188,7 @@ void FwLayout::mountRibbon()
             }
         }
         existing->clear();
-        existing->addWidget(ribbon);
+        existing->addWidget(ribbonOwner.release());  // QToolBar takes ownership
         existing->show();
         // Rebind the single context switcher to the freshly built ribbon so the
         // edit-signal subscription drives the CURRENT ribbon (the prior ribbon was
@@ -205,7 +209,7 @@ void FwLayout::mountRibbon()
     wrapper->setWindowTitle(QObject::tr("FreeWorks Ribbon"));
     wrapper->setMovable(false);
     wrapper->setFloatable(false);
-    wrapper->addWidget(ribbon);
+    wrapper->addWidget(ribbonOwner.release());  // QToolBar takes ownership
 
     mw->addToolBar(Qt::TopToolBarArea, wrapper);
 
