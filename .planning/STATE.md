@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-06-14T16:43:53.000Z"
-last_activity: "2026-06-14 -- Executed Phase 03 Plan 02 (FeatureManager mount + plane remap + scoping + DnD validity); next: 03-03"
+stopped_at: Completed 03-03-PLAN.md (closeout during /gsd-resume-work) — Phase 03 plans all executed; pending phase verification + transition
+last_updated: "2026-06-14"
+last_activity: "2026-06-14 -- Closed out Phase 03 Plan 03 (FwRollbackBar + FwSelectionGuard, link-free Body.Tip rollback, below-tip greying, Roll actions); TREE-02 done; next: verify/transition Phase 03 or plan Phase 04"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 11
-  completed_plans: 10
-  percent: 33
+  completed_plans: 11
+  percent: 40
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 3 of 7 (featuremanager-design-tree) — IN PROGRESS (Wave 2 complete)
-Plan: 3 of 3 (03-01 done → 03-02 done → 03-03 next, strictly sequential)
-Status: 03-01 (test scaffold + D-03 spike, reuse committed) and 03-02 (FeatureManager mount + FwFeatureTreeDelegate plane remap + active-Body scoping + F2 + DnD validity affordance) executed. Wave 3 (03-03 rollback bar / TREE-02) is the remaining slice. Tests authored compile-intended, pending CI (no build tree in env).
-Last activity: 2026-06-14 -- Executed Phase 03 Plan 02 (FeatureManager mount + plane remap + scoping + DnD validity); next: 03-03
+Phase: 3 of 7 (featuremanager-design-tree) — ALL PLANS EXECUTED (Wave 3 complete); phase verification + transition pending
+Plan: 3 of 3 (03-01 done → 03-02 done → 03-03 done) — strictly sequential, complete
+Status: 03-03 (FwRollbackBar rollback-bar slice — link-free Body.Tip fire via the PartDesign_MoveTip command-ID under an RAII FwSelectionGuard, drawRow band + SizeVerCursor grab zone, Tip-driven below-tip greying, Roll Back/Forward/To End, insert-at-bar + explicit Tip policy) executed and closed out. TREE-02 done. All locally-verifiable acceptance criteria (grep + link-free guards + forbidden-token checks) and the leak-grep pass; ctest authored, NOT run, pending CI (no build tree in env). Phase-3 live FEEL obligations routed to SPIKE_LIVE_CHECKLIST.md.
+Last activity: 2026-06-14 -- Closed out Phase 03 Plan 03; next: verify/transition Phase 03, or plan Phase 04 (PropertyManager)
 
-Progress: [███░░░░░░░] 2 of 7 phases complete (33%)
+Progress: [████░░░░░░] Phase 3 plans all executed — 2 of 7 phases formally complete; Phase 3 verification pending (~40%)
 
 ## Performance Metrics
 
@@ -62,6 +62,9 @@ Progress: [███░░░░░░░] 2 of 7 phases complete (33%)
 | Phase 02 P04 | 5 | 2 tasks | 7 files |
 | Phase 03 P01 | 511 | 3 tasks | 9 files |
 | Phase 03 P02 | 396 | 2 tasks | 8 files |
+| Phase 03 P03 | ~720* | 3 tasks | 10 files |
+
+*03-03 duration estimated from commit timestamps (feat commits 11:53–11:58 CDT) — not instrumented (gsd-tools off PATH; closed out during resume).
 
 ## Accumulated Context
 
@@ -101,6 +104,10 @@ Recent decisions affecting current work:
 - [Phase 03]: [03-02]: FwLayout mounts FwFeatureTree under Fw_FeatureManager via find-or-reuse (unregister placeholder, re-register tree under the SAME objectName) so saveState round-trips; mirrors mountRibbon discipline, DockWindowManager only
 - [Phase 03]: [03-02]: DnD validity affordance calls Gui::TreeWidget::dragMoveEvent FIRST then only decorates event->isAccepted()==false with Qt::ForbiddenCursor + no insertion line (no transaction on BLOCK); never re-implements/re-calls the drop gate (TREE-04, D-10/D-11/D-12)
 - [Phase 03]: [03-02]: A1 plane correspondence (Front=XY/Top=XZ/Right=YZ) carried forward for the daily-SW-user parity check; live remap/scoping/F2/DnD demos deferred to FwFeatureTree_SPIKE_LIVE_CHECKLIST.md (no build tree)
+- [Phase 03]: [03-03]: Rollback bar fires the REAL Body.Tip via the existing PartDesign_MoveTip command-ID under an RAII FwSelectionGuard — the command opens its OWN transaction so NO outer FreeWorks openCommand is added (one Ctrl+Z restores); no PartDesign include/link, no C++ Tip.setValue (D-04/A3/Pitfall 1, reviewer concern 5)
+- [Phase 03]: [03-03]: FwSelectionGuard restores BOTH the global selection AND the preselection — both clearSelection and addSelection default clearPreSelect=true (Selection.h:360/385), so the replay passes clearPreSelect=false and the preselection is re-asserted explicitly via setPreselect (live) / rmvPreselect (none); getCompleteSelection() + getPreselection() both round-trip (reviewer HIGH-B)
+- [Phase 03]: [03-03]: Bar→solid-feature snap is a PURE LINK-FREE resolver (read Group via getPropertyByName('Group') as App::PropertyLinkList; classify solidness by getTypeId().getName() type-name STRING, mirroring isSolidFeature semantics) — never the C++-only getPrevSolidFeature/isSolidFeature (reviewer concern 7); insert-at-bar reuses the Python-only Body.insertObject + explicit post-insert Tip policy (solid→becomes tip, non-solid→Tip unchanged)
+- [Phase 03]: [03-03]: Below-tip greying is the Gui-only kBelowTipRole driven live by Body.Tip (painted by the 03-02 delegate hook) — NEVER a Visibility write; the bar holds NO new persisted state, Body.Tip is the single source of truth (D-05/D-06, Pitfall 3). Live FEEL items (3D suppress-below, drag/grab, fire-no-link + selection/preselection restore on hardware, SC5, A1) routed to SPIKE_LIVE_CHECKLIST.md
 
 ### Pending Todos
 
@@ -125,6 +132,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T16:43:53.000Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-06-14 (resumed)
+Stopped at: 03-03 closeout COMPLETE — Task 3 (SPIKE_LIVE_CHECKLIST Phase-3 section) committed, 03-03-SUMMARY.md written, STATE advanced. Phase 03 plans all executed (TREE-02 done). Next: phase verification/transition (/gsd-verify-work) or plan Phase 04 (PropertyManager).
 Resume file: None
