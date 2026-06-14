@@ -1,7 +1,7 @@
 ---
 phase: 4
 slug: propertymanager-panel
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-14
@@ -124,6 +124,7 @@ This section captures the interaction behaviors the checker and executor need be
 
 | Interaction | Contract |
 |-------------|----------|
+| Visual focal point | **Primary visual anchor:** the green-✓ / red-✗ header band (the commit/cancel decision point). **Secondary focal point:** the active **pink** reference box (where the user's next action is armed). All other chrome (rollout headers, field labels) is subordinate — the executor must not let hosted-panel content out-emphasize these two anchors. |
 | Panel reveal | Panel appears **left-docked** (`Fw_PropertyManager` dock) when a command/edit starts, event-driven via `Gui::Control` + `signalInEdit` (CONTEXT D-07). Slide animation is OPTIONAL polish (`QPropertyAnimation`, only if low-risk + cross-platform-clean); instant reveal is acceptable for MVP (CONTEXT D-08). Slide FEEL → live checklist. |
 | Modality | **Non-modal / semi-modal** — geometry stays pickable while the panel is open; model previews live (PROP-01, CONTEXT D-07). Fully-modal is explicitly REJECTED (REQUIREMENTS Out-of-Scope). |
 | Rollout groups | Collapsible `TaskBox`/`TaskGroup` rollouts reused from `TaskView` (CONTEXT D-04); dynamic options appear/disappear by choice. |
@@ -150,11 +151,11 @@ Not applicable — this is a native C++/Qt desktop application with no shadcn/np
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS (n/a — native Qt, no registry)
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (FLAG resolved — explicit focal-point declaration added to Interaction Contract)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS (n/a — native Qt, no registry)
 
-**Approval:** pending
+**Approval:** approved (gsd-ui-checker, 6/6 dimensions; 1 non-blocking FLAG resolved)
