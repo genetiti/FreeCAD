@@ -16,11 +16,13 @@ add_executable(Gui_tests_run
         SelectionTest.cpp
         FwWorkbench.cpp
         FwRibbon.cpp
+        FwFeatureTree.cpp
 )
 
 # Qt tests
 setup_qt_test(QuantitySpinBox)
 setup_qt_test(FwRibbonWidget)
+setup_qt_test(FwFeatureTreeWidget)
 
 target_link_libraries(Gui_tests_run PRIVATE
     GTest::gtest_main
