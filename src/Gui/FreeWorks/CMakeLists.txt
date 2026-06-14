@@ -22,6 +22,7 @@ set(FreeWorks_CPP_SRCS
     FwWorkbench.cpp
     FwRibbon.cpp
     FwRibbonMap.cpp
+    FwRibbonContext.cpp
 )
 
 set(FreeWorks_HPP_SRCS
@@ -32,6 +33,7 @@ set(FreeWorks_HPP_SRCS
     FwWorkbench.h
     FwRibbon.h
     FwRibbonMap.h
+    FwRibbonContext.h
 )
 
 set(FreeWorks_SRCS
