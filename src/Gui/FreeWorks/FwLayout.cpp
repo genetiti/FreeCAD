@@ -40,6 +40,7 @@
 #include <Gui/Workbench.h>
 #include <Gui/WorkbenchManager.h>
 
+#include "FwFeatureTree.h"
 #include "FwLayout.h"
 #include "FwRibbon.h"
 #include "FwRibbonContext.h"
@@ -102,6 +103,48 @@ void ensureDock(Gui::DockWindowManager* manager,
     }
 }
 
+/// Mount the real FwFeatureTree under the permanent "Fw_FeatureManager" dock name,
+/// REPLACING the Phase-1 placeholder. Mirrors mountRibbon()'s discipline:
+///   - idempotent find-or-reuse by the registered-dock lookup, so re-activation never
+///     registers a second tree;
+///   - WR-02 unique_ptr-until-adopt: the tree has no QObject parent until
+///     registerDockWindow() adopts it, so a throw before the adopt site cannot leak it
+///     — release() only at the adopt call;
+///   - observe-the-DOM: reach the registry only through DockWindowManager (no
+///     MainWindow.cpp edit).
+/// The dock objectName stays "Fw_FeatureManager" so QMainWindow saveState()/
+/// restoreState() round-trips exactly as the placeholder did (TREE-01, D-01).
+void mountFeatureManager(Gui::DockWindowManager* manager)
+{
+    const char* kFeatureManagerDock = "Fw_FeatureManager";
+
+    // Idempotent: if a FwFeatureTree is already registered under this name (a prior
+    // activation), reuse it — never add a second tree (threat T-03-12).
+    QWidget* existing = manager->findRegisteredDockWindow(kFeatureManagerDock);
+    if (qobject_cast<FreeWorksGui::FwFeatureTree*>(existing) != nullptr) {
+        return;
+    }
+
+    // Build into a unique_ptr (no parent yet); set the objectName to the dock name so
+    // the saved layout keys it exactly like the placeholder it replaces. release() only
+    // at the registerDockWindow adopt site.
+    auto treeOwner =
+        std::make_unique<FreeWorksGui::FwFeatureTree>(kFeatureManagerDock, nullptr);
+    treeOwner->setObjectName(QString::fromUtf8(kFeatureManagerDock));
+    treeOwner->setWindowTitle(QObject::tr("FeatureManager"));
+
+    // If a placeholder (or anything non-tree) was registered first, drop it so the dock
+    // name is free for the tree to claim (find-or-reuse semantics).
+    if (existing != nullptr) {
+        QWidget* old = manager->unregisterDockWindow(kFeatureManagerDock);
+        if (old != nullptr) {
+            old->deleteLater();
+        }
+    }
+
+    manager->registerDockWindow(kFeatureManagerDock, treeOwner.release());
+}
+
 }  // namespace
 
 void FwLayout::install()
@@ -121,10 +164,11 @@ void FwLayout::install()
     // (FeatureManager + PropertyManager on the left, Task Pane reserved on the
     // right); here we only supply the content widgets. Each placeholder's
     // objectName is its dock name so the saved layout round-trips (CR-02).
-    ensureDock(manager,
-               "Fw_FeatureManager",
-               QObject::tr("FeatureManager"),
-               QObject::tr("FeatureManager (Phase 3)"));
+    // Fw_FeatureManager hosts the REAL FwFeatureTree (Phase 3). The Phase-1 placeholder
+    // is replaced by a mounted tree via the find-or-reuse mount (idempotent; same dock
+    // objectName so the saved layout round-trips). PropertyManager / Task Pane stay
+    // placeholders until their phases.
+    mountFeatureManager(manager);
     ensureDock(manager,
                "Fw_PropertyManager",
                QObject::tr("PropertyManager"),

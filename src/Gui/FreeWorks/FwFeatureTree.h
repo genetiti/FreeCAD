@@ -35,6 +35,7 @@ class QPainter;
 class QStyleOptionViewItem;
 class QModelIndex;
 class QTreeWidgetItem;
+class QDragMoveEvent;
 
 namespace App
 {
@@ -118,12 +119,33 @@ public:
     /// getPropertyByName("Group") (App::PropertyLinkList). Empty if absent.
     std::vector<App::DocumentObject*> activeBodyGroup() const;
 
+    /// The empty-state copy shown when no Body is active (UI-SPEC § Copywriting). The
+    /// string carries no trademark token (leak-grep clean); exposed for the QTEST.
+    static QString noActiveBodyText();
+
+    /// True iff no Body is currently active (the empty-state condition). Exposed so the
+    /// QTEST can assert the empty state without inspecting private state.
+    bool isEmptyState() const;
+
 protected:
     /// Presentation seam (Plan 03-03 paints the rollback band here). For the spike it
     /// is a pass-through that defers entirely to the base TreeWidget rendering.
     void drawRow(QPainter* painter,
                  const QStyleOptionViewItem& option,
                  const QModelIndex& index) const override;
+
+    /**
+     * DnD validity affordance (TREE-04, D-10/D-11/D-12; reviewer DnD-override concern).
+     * Calls Gui::TreeWidget::dragMoveEvent(event) FIRST — which runs the full inherited
+     * canDropObjectEx target validation and sets the event accept/ignore state — then
+     * ONLY decorates the result: if the base left the event ignored (invalid target),
+     * sets Qt::ForbiddenCursor and suppresses the insertion-line drop indicator (no
+     * transaction). If the base accepted it, leaves the inherited 2px insertion line and
+     * lets the inherited dropEvent/sortDroppedObjects commit the Group reorder in its
+     * existing single transaction. The subclass NEVER re-implements target validation,
+     * never re-calls canDropObjectEx, never reaches private target info.
+     */
+    void dragMoveEvent(QDragMoveEvent* event) override;
 
 private:
     /// Connect the Gui signals (activated object / in-edit / active document) so the

@@ -27,6 +27,8 @@
 // Include the Qt headers this TU uses unconditionally rather than relying on the PCH
 // (mirrors FwRibbon.cpp WR-04): <QTreeWidget> arrives via the Gui::TreeWidget base,
 // but the drawRow signature and the item API are named here explicitly.
+#include <QCursor>
+#include <QDragMoveEvent>
 #include <QModelIndex>
 #include <QPainter>
 #include <QStyleOptionViewItem>
@@ -41,6 +43,7 @@
 #include <Gui/ViewProviderDocumentObject.h>
 
 #include "FwFeatureTree.h"
+#include "FwFeatureTreeDelegate.h"
 
 namespace FreeWorksGui
 {
@@ -206,7 +209,52 @@ void FwFeatureTree::applySpikeMetrics()
     // NO inline stylesheet, NO hex color — Phase 7 owns theming; color comes from the
     // QPalette / native QStyle the base widget already uses.
     setIconHeight(kRowHeight);
-    setIndentation(kIndent);
+    static_assert(kIndent == 16, "UI-SPEC § Spacing pins the FeatureManager indent to 16px");
+    setIndentation(16);  // == kIndent; the UI-SPEC § Spacing 16px indent metric
+
+    // Install the FeatureManager row delegate: the three origin planes render under
+    // their reference-CAD display names (Front/Top/Right) display-only, and the
+    // below-tip greying hook is palette-driven (Plan 03-03 sets the flag). The delegate
+    // is parented to this tree so it resolves rows via itemFromIndex() (the stock
+    // item-object path). setItemDelegate takes ownership of the delegate.
+    setItemDelegate(new FwFeatureTreeDelegate(this));
+}
+
+QString FwFeatureTree::noActiveBodyText()
+{
+    // UI-SPEC § Copywriting empty state. tr() string, no trademark token.
+    return tr("No active Body");
+}
+
+bool FwFeatureTree::isEmptyState() const
+{
+    // The empty state is shown exactly when no Body is active to scope to.
+    return m_activeBody == nullptr;
+}
+
+void FwFeatureTree::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Reuse the dependency-aware machinery VERBATIM: run the inherited validation FIRST.
+    // Gui::TreeWidget::dragMoveEvent consults the ViewProvider drop/drag gates and sets
+    // the event accept/ignore state (Tree.cpp:2348-2458). We never re-implement those
+    // gates and never re-call them — we only read the resulting accept/ignore state below.
+    Gui::TreeWidget::dragMoveEvent(event);
+
+    if (!event->isAccepted()) {
+        // The base IGNORED the drop (invalid target — e.g. child-before-parent). Decorate
+        // the rejection: forbidden cursor + suppress the 2px insertion line. No
+        // transaction opens (the base already declined) — allow-and-flag is never taken
+        // (D-10/D-11/D-12; UI-SPEC § Interaction State Contract: invalid = no line +
+        // ForbiddenCursor + event->ignore()).
+        setCursor(Qt::ForbiddenCursor);
+        setDropIndicatorShown(false);
+        return;
+    }
+
+    // VALID target: leave the inherited 2px insertion line and the inherited
+    // dropEvent/sortDroppedObjects single-transaction Group reorder untouched.
+    unsetCursor();
+    setDropIndicatorShown(true);
 }
 
 }  // namespace FreeWorksGui

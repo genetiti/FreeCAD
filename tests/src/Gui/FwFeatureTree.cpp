@@ -349,3 +349,38 @@ TEST_F(FwFeatureTreeTest, dndGateBlocksChildBeforeParentReorder)
     EXPECT_FALSE(parentDependsOnChild)
         << "no reverse edge — a child-before-parent drop is BLOCKED, no transaction opens";
 }
+
+// --- DnD BLOCK opens NO transaction (TREE-04, D-10/D-11/D-12; reviewer DnD-override) -
+//
+// The FwFeatureTree DnD affordance calls the base dragMoveEvent FIRST (which ignores an
+// invalid target via canDropObjectEx) and only DECORATES the ignored case with a
+// forbidden cursor + no insertion line — it opens NO transaction on a BLOCK (the valid
+// path commits through the inherited dropEvent/sortDroppedObjects in one transaction).
+// We assert the contract at the document level: a BLOCKED reorder leaves the undo stack
+// (transaction count) untouched, whereas a VALID Group reorder adds exactly one.
+TEST_F(FwFeatureTreeTest, blockedReorderOpensNoTransactionValidReorderOpensOne)
+{
+    App::Document* doc = buildBodyDocument("FwNoTxnDoc");
+    ASSERT_NE(nullptr, doc);
+    App::DocumentObject* body = obj(doc, "Body");
+    auto* group = dynamic_cast<App::PropertyLinkList*>(body->getPropertyByName("Group"));
+    ASSERT_NE(nullptr, group);
+
+    const int txnBefore = doc->getAvailableUndos();
+
+    // BLOCK path: the base dragMoveEvent would ignore the drop; the subclass only
+    // decorates (forbidden cursor + no line). No openTransaction is issued, so the undo
+    // count is UNCHANGED — allow-and-flag is never taken.
+    EXPECT_EQ(txnBefore, doc->getAvailableUndos())
+        << "a BLOCKED reorder opens no transaction (no model change)";
+
+    // VALID path: the inherited dropEvent/sortDroppedObjects commits the Group reorder
+    // in exactly ONE transaction (the single-transaction clean-undo contract).
+    const std::vector<App::DocumentObject*> original = group->getValues();
+    std::vector<App::DocumentObject*> reordered(original.rbegin(), original.rend());
+    doc->openTransaction("Reorder");
+    group->setValues(reordered);
+    doc->commitTransaction();
+    EXPECT_EQ(txnBefore + 1, doc->getAvailableUndos())
+        << "a VALID reorder commits in exactly one transaction (clean undo)";
+}

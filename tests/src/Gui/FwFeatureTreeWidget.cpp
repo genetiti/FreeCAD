@@ -165,6 +165,23 @@ private Q_SLOTS:
                  "the inherited F2 (or macOS Return) rename action must be present (D-13)");
     }
 
+    // TREE-01 — after construction the tree has the FwFeatureTreeDelegate installed and
+    // the UI-SPEC 16px indent metric pinned, and reports the 'No active Body' empty
+    // state when no Body has been activated.
+    void test_DelegateInstalledIndent16AndEmptyState()
+    {
+        auto tree = std::make_unique<FreeWorksGui::FwFeatureTree>("FwFeatureManager", nullptr);
+
+        QVERIFY2(dynamic_cast<FreeWorksGui::FwFeatureTreeDelegate*>(tree->itemDelegate())
+                     != nullptr,
+                 "the FwFeatureTreeDelegate must be installed via setItemDelegate");
+        QCOMPARE(tree->indentation(), 16);
+
+        // No Body activated yet -> empty state, with the exact UI-SPEC copy.
+        QVERIFY2(tree->isEmptyState(), "a freshly built tree with no active Body is empty-state");
+        QCOMPARE(FreeWorksGui::FwFeatureTree::noActiveBodyText(), QStringLiteral("No active Body"));
+    }
+
     // TREE-01 / D-03 item 2 — the scoping RENDER over the REAL nested topology.
     //
     // Build a real document with TWO PartDesign::Body objects, each carrying an Origin
