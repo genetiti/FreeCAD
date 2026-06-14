@@ -42,6 +42,7 @@
 
 #include "FwLayout.h"
 #include "FwRibbon.h"
+#include "FwRibbonContext.h"
 
 using namespace FreeWorksGui;
 
@@ -50,6 +51,11 @@ QStringList FwLayout::s_hiddenToolBars;
 bool FwLayout::s_chromeHidden = false;
 bool FwLayout::s_menuBarWasVisible = true;
 bool FwLayout::s_menuBarWasNative = false;
+
+// --- contextual tab switcher (RIBBON-02, Plan 02-04) ------------------------
+// Exactly ONE context switcher for the FreeWorks-mode lifetime. unique_ptr so its
+// scoped fastsignals connections are released on reset() at teardown.
+std::unique_ptr<FwRibbonContext> FwLayout::s_ribbonContext;
 
 const char* FwLayout::ribbonToolBarObjectName()
 {
@@ -180,6 +186,10 @@ void FwLayout::mountRibbon()
         existing->clear();
         existing->addWidget(ribbon);
         existing->show();
+        // Rebind the single context switcher to the freshly built ribbon so the
+        // edit-signal subscription drives the CURRENT ribbon (the prior ribbon was
+        // scheduled for deletion above; QPointer would otherwise go null).
+        bindRibbonContext(ribbon);
         return;
     }
 
@@ -198,10 +208,35 @@ void FwLayout::mountRibbon()
     wrapper->addWidget(ribbon);
 
     mw->addToolBar(Qt::TopToolBarArea, wrapper);
+
+    // Bind the contextual tab switcher (RIBBON-02) to the just-mounted ribbon and
+    // start its edit-signal subscription so entering a sketch activates the Sketch
+    // tab and leaving restores the prior tab (D-09/D-10).
+    bindRibbonContext(ribbon);
+}
+
+void FwLayout::bindRibbonContext(FwRibbon* ribbon)
+{
+    // Own exactly ONE context for the FreeWorks-mode lifetime. Constructing it lazily
+    // (and reusing it across re-activations) guarantees a single edit-signal
+    // subscription — never a duplicate (pairs with the idempotent mount; threat
+    // T-02-09). connect() is itself idempotent (it reassigns the scoped connections),
+    // so calling it again after a rebind cannot stack subscriptions.
+    if (!s_ribbonContext) {
+        s_ribbonContext = std::make_unique<FwRibbonContext>();
+    }
+    s_ribbonContext->setRibbon(ribbon);  // held via QPointer
+    s_ribbonContext->connect();
 }
 
 void FwLayout::unmountRibbon()
 {
+    // Release the context switcher FIRST so its scoped fastsignals connections are
+    // dropped before the ribbon is torn down — no signal can fire into a
+    // half-removed ribbon (REVIEW MEDIUM / threat T-02-09). Resetting the unique_ptr
+    // runs ~FwRibbonContext() which disconnect()s the subscriptions.
+    s_ribbonContext.reset();
+
     Gui::MainWindow* mw = Gui::getMainWindow();
     if (mw == nullptr) {
         return;

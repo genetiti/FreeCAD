@@ -21,6 +21,7 @@
 
 #include <src/Gui/FreeWorks/FwLayout.h>
 #include <src/Gui/FreeWorks/FwRibbon.h>
+#include <src/Gui/FreeWorks/FwRibbonContext.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -348,6 +349,43 @@ private Q_SLOTS:
         fresh->setCurrentIndex(0);
         fresh->restoreTabState();
         QCOMPARE(fresh->currentIndex(), 2);
+    }
+
+    // RIBBON-02 (Plan 02-04 Task 2): an FwRibbonContext bound to a REAL built ribbon
+    // resolves the pure SwitchToSketch action to the curated "Sketch" tab via
+    // setCurrentTab("Sketch"), and a subsequent RestorePrevious returns the ribbon to
+    // the ORIGINAL index. This is the bound-layer counterpart of the pure-logic tests
+    // in FwRibbon.cpp (which assert the state machine with no widget). The live
+    // edit-signal round-trip (real sketch enter/exit) plus re-validation of the
+    // "SketcherGui::ViewProviderSketch" type-name literal stay a VALIDATION manual
+    // item — a pure test cannot prove the literal still matches upstream (REVIEW LOW).
+    void test_ContextBoundToRibbonResolvesSketchTabAndRestores()
+    {
+        auto ribbon = std::make_unique<FreeWorksGui::FwRibbon>();
+        ribbon->buildFromCuratedMap();
+        QVERIFY2(ribbon->tabCount() >= 3, "curated build must yield the 3 core tabs");
+
+        // Start on a non-Sketch tab (the user's manual selection).
+        ribbon->setCurrentTab(QStringLiteral("Evaluate"));
+        const int manualIndex = ribbon->currentIndex();
+        QCOMPARE(ribbon->tabText(manualIndex), QStringLiteral("Evaluate"));
+
+        FreeWorksGui::FwRibbonContext ctx(ribbon.get());
+
+        // Drive the pure core as the inEdit handler would, then apply the action to
+        // the bound ribbon exactly like connect()'s lambda does.
+        const auto enter = ctx.decideOnEnter(/*isSketch=*/true, ribbon->currentIndex());
+        QCOMPARE(enter, FreeWorksGui::FwRibbonContext::TabAction::SwitchToSketch);
+        QCOMPARE(ctx.previousIndex(), manualIndex);
+        ribbon->setCurrentTab(QStringLiteral("Sketch"));
+        QCOMPARE(ribbon->tabText(ribbon->currentIndex()), QStringLiteral("Sketch"));
+
+        // Leaving restores the original (manual) tab.
+        const auto reset = ctx.decideOnReset();
+        QCOMPARE(reset, FreeWorksGui::FwRibbonContext::TabAction::RestorePrevious);
+        ribbon->setCurrentIndex(ctx.previousIndex());
+        QCOMPARE(ribbon->currentIndex(), manualIndex);
+        QCOMPARE(ribbon->tabText(ribbon->currentIndex()), QStringLiteral("Evaluate"));
     }
 };
 

@@ -26,10 +26,14 @@
 
 #include "PreCompiled.h"
 
+#include <memory>
+
 #include <QStringList>
 
 namespace FreeWorksGui
 {
+
+class FwRibbonContext;
 
 /**
  * Installer for the FreeWorks dock shell + ribbon command surface.
@@ -65,7 +69,9 @@ public:
     static void mountRibbon();
 
     /// Remove the Fw_RibbonToolBar wrapper from the main window (predictable
-    /// teardown). No-op if nothing is mounted.
+    /// teardown), AND release the FwRibbonContext switcher so its edit-signal
+    /// subscriptions do not leak past FreeWorks mode (RESEARCH Pattern 3 / threat
+    /// T-02-09). No-op if nothing is mounted.
     static void unmountRibbon();
 
     /**
@@ -84,6 +90,19 @@ public:
 private:
     /// Stable objectName of the real QToolBar that wraps the ribbon.
     static const char* ribbonToolBarObjectName();
+
+    // --- contextual tab switcher (RIBBON-02, Plan 02-04) --------------------
+    /// Bind (or rebind) the single FwRibbonContext switcher to @p ribbon and start
+    /// its edit-signal subscription. Owns exactly ONE context for the FreeWorks-mode
+    /// lifetime, so re-activation refreshes the binding instead of adding a duplicate
+    /// subscription (pairs with the idempotent mount). Called from mountRibbon().
+    static void bindRibbonContext(class FwRibbon* ribbon);
+
+    /// The single context switcher bound to the mounted ribbon. Held for the
+    /// FreeWorks-mode lifetime and reset on unmountRibbon() so its scoped
+    /// fastsignals connections are released on teardown (no signal fires into a
+    /// torn-down ribbon — REVIEW MEDIUM).
+    static std::unique_ptr<FwRibbonContext> s_ribbonContext;
 
     // --- chrome snapshot (FreeWorks-scoped, reversible) ---------------------
     /// Toolbar names hidden by the last hideStockChrome(); restored verbatim.
