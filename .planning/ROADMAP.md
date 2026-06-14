@@ -90,7 +90,19 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. User drags a feature up/down in the tree to reorder history with a visible insertion-line affordance and validity feedback, and the reorder goes through document transactions (clean undo/redo, no `.FCStd` pollution)
   5. A daily-SolidWorks-user acceptance check confirms rollback suppress-below + insert-at-bar *feels* like SolidWorks, not just looks like it
 
-**Plans**: TBD
+**Plans**: 3 plans
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Wave 0 test scaffold + tree-reuse spike gate (D-03 `reuse committed`/`subclass-fallback committed` verdict; Body.Tip rollback-logic confirmed) (TREE-01, TREE-02, TREE-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Mount FwFeatureTree in Fw_FeatureManager: active-Body-scoped tree, Origin/Front-Top-Right planes, nested sketches, F2 rename, drag-to-reorder with validity BLOCK (TREE-01, TREE-04, TREE-03 F2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Rollback bar: drawn band drives the real Body.Tip (suppress-below + recompute, no module link), reversible Roll Back/Forward/To End, insert-at-bar, Gui-only greying + live checklist (TREE-02)
+
 **UI hint**: yes
 
 ### Phase 4: PropertyManager Panel
@@ -169,7 +181,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. SolidWorks Mode Foundation | 4/4 | Complete   | 2026-06-07 |
 | 2. CommandManager Ribbon | 4/4 | Complete    | 2026-06-14 |
-| 3. FeatureManager Design Tree | 0/TBD | Not started | - |
+| 3. FeatureManager Design Tree | 0/3 | Planned | - |
 | 4. PropertyManager Panel | 0/TBD | Not started | - |
 | 5. Selection Parity & On-Canvas Accelerators | 0/TBD | Not started | - |
 | 6. Mouse Gestures & Instant3D Handles | 0/TBD | Not started | - |
