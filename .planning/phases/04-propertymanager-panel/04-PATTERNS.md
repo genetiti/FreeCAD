@@ -39,13 +39,17 @@ if (qobject_cast<FreeWorksGui::FwFeatureTree*>(existing) != nullptr) {
     return;  // never add a second
 }
 ```
-**Change for Phase 4 (RESEARCH Pattern 1, Pitfall 4):** Do NOT register a new widget under `Fw_PropertyManager` and do NOT reparent the `TaskView`. Instead move the EXISTING `"Std_TaskView"` dock CONTAINER left (preserves the `"Tasks"` widget objectName that `Control::taskPanel()` resolves by — Control.cpp:58):
+**Change for Phase 4 (CORRECTED — see 04-02-PLAN):** the live dock container objectName is **"Tasks"**, NOT "Std_TaskView" (DockWindowManager.cpp:290/532 sets the container objectName from the widget objectName; MainWindow.cpp:623). `getDockContainer("Std_TaskView")` is unreliable and `addDockWindow()` early-returns for an already-docked widget (DockWindowManager.cpp:256-258). Resolve the host from `Control().taskPanel()` and walk up to its parent QDockWidget; consume the `Fw_PropertyManager` placeholder so there is ONE left surface (managed dock identity = "Tasks"):
 ```cpp
-QDockWidget* taskDock = Gui::DockWindowManager::instance()->getDockContainer("Std_TaskView");
-if (taskDock && mw->dockWidgetArea(taskDock) != Qt::LeftDockWidgetArea) {
-    mw->addDockWidget(Qt::LeftDockWidgetArea, taskDock);  // re-docks, keeps identity
-    taskDock->show();
+QWidget* panel = Gui::Control().taskPanel();                 // the registered "Tasks" TaskView
+auto* dock = panel ? qobject_cast<QDockWidget*>(panel->parentWidget()) : nullptr;
+if (dock && mw->dockWidgetArea(dock) != Qt::LeftDockWidgetArea) {
+    mw->addDockWidget(Qt::LeftDockWidgetArea, dock);         // re-dock an existing (e.g. right) dock
 }
+else if (!dock && panel) {
+    Gui::DockWindowManager::instance()->addDockWindow("Tasks", panel, Qt::LeftDockWidgetArea); // never-docked
+}
+// remove the Fw_PropertyManager placeholder dock (post-setup) so it is not a 2nd left surface
 ```
 **SPIKE-GATED (A1 / Open Question 1):** Confirm at runtime whether `getDockWindow("Tasks")` resolves the container or the widget objectName BEFORE committing this move. If it would break, fall back to the D-03 thin-adopt path. Verdict → `SPIKE.md`.
 
@@ -79,9 +83,8 @@ greyed.palette.setColor(QPalette::Text, disabledText);
 ```
 **Change (UI-SPEC § Color, D-06):** active box = palette-DERIVED pink (functional state, in scope now; exact hue → Phase 7); filled rows use `QPalette::Highlight`/`HighlightedText`; inactive caption uses `QPalette::Disabled, QPalette::Text`. **Never blue** (reserved for prompt icons). Test asserts no `setStyleSheet` color literal; `tools/fw-string-leak-grep.sh` must stay clean.
 
-### RAII selection snapshot/restore
-**Source:** `src/Gui/FreeWorks/FwSelectionGuard.h:69-89` — **reuse verbatim**, do not rebuild.
-Snapshots selection AND preselection by owned value (handles the `clearPreSelect=true` clobber pitfall, FwSelectionGuard.h:50-56). Use around FLOW-01's `addSelection(finished sketch)` (D-11) and any FreeWorks-driven selection mutation.
+### Selection mutation — FLOW-01 needs PERSISTENT, not RAII
+> **SUPERSEDED for FLOW-01:** `FwSelectionGuard` snapshots+RESTORES on scope exit (FwSelectionGuard.cpp:89-123), so wrapping the profile selection in it UNDOES it (false-positive). FLOW-01 must use a PERSISTENT change that outlives the handler: `Gui::Selection().clearSelection(nullptr, /*clearPreSelect=*/false)` then `addSelection(doc, sketch, …, /*clearPreSelect=*/false)` (see 04-04-PLAN). `FwSelectionGuard` remains correct ONLY for genuinely transient/RAII mutations that must self-restore.
 
 ---
 
@@ -125,7 +128,7 @@ app->signalResetEdit.connect([](const Gui::ViewProviderDocumentObject& vp) {
     }
 });
 ```
-**Copy:** reuse the `kSketchViewProviderTypeName` constant already defined (FwRibbonContext.cpp:54) — do NOT add a Sketcher include (Pitfall 2). **Change vs analog:** add the `Gui::Selection().addSelection` step; do NOT auto-launch any feature command (D-11). Wrap the selection mutation with `FwSelectionGuard` if it must not clobber existing preselect.
+**Copy:** reuse the `kSketchViewProviderTypeName` constant already defined (FwRibbonContext.cpp:54) — do NOT add a Sketcher include (Pitfall 2). **Change vs analog:** add a PERSISTENT `Gui::Selection().clearSelection(nullptr, /*clearPreSelect=*/false)` + `addSelection(…, /*clearPreSelect=*/false)` step (NOT `FwSelectionGuard` — its dtor would restore/undo the selection; the `clearPreSelect=false` overload preserves any live preselect); do NOT auto-launch any feature command (D-11).
 **LIVE RE-VALIDATION (Pitfall 2 / Open Question 3):** the type-name literal is an upstream contract — record in `SPIKE_LIVE_CHECKLIST.md`.
 
 ---

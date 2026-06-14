@@ -90,7 +90,7 @@ This is a native C++/Qt desktop fork. The "stack" is the set of **in-tree FreeCA
 | `FwPropertyManagerHeader` (new, thin) | SolidWorks green-✓ / red-✗ header band that calls `Gui::Control().accept()` / `reject()`; palette-only color | The PROP-01 ✓/✗ header (D-04). Lives above/around the hosted `TaskView`. |
 | `FwPropertyKeyFilter` (new, thin `QObject` event filter) OR container `keyPressEvent` | D-10 Tab traversal + ensure Enter→accept / Esc→reject at container level | Installed on the hosted `TaskView` container; do NOT edit `TaskView::keyPressEvent`. |
 | `FwReferenceBoxStyler` (new, thin) | Apply palette-derived **pink** active tone to the currently-active reference box; read active-box state from `Gui::Selection`/hosted panel | PROP-02 functional pink-state (D-06). The box itself is owned by the hosted panel. |
-| Reuse `FwSelectionGuard` (Phase 3) | Snapshot/restore `Gui::Selection` + preselection (RAII) | FLOW-01 auto-profile-select (D-11) and any FreeWorks-driven selection mutation. |
+| ~~Reuse `FwSelectionGuard` (Phase 3)~~ **(SUPERSEDED — do NOT use for FLOW-01)** | `FwSelectionGuard::~FwSelectionGuard()` (FwSelectionGuard.cpp:89-123) RESTORES the snapshot on scope exit, so it would UNDO the profile selection. FLOW-01 needs a PERSISTENT selection: `Gui::Selection().clearSelection(nullptr, /*clearPreSelect=*/false)` + `addSelection(doc, sketch, …, /*clearPreSelect=*/false)` that outlives the handler (see 04-04-PLAN). FwSelectionGuard is only correct for genuinely transient/RAII mutations. |
 | Reuse `FwRibbonContext` (Phase 2) | Tab handoff to the Features tab on sketch exit | FLOW-01 (D-11) — extend or pair with the existing `signalResetEdit` handler. |
 
 ### Alternatives Considered
@@ -299,13 +299,22 @@ app->signalResetEdit.connect([](const Gui::ViewProviderDocumentObject& vp) {
 
 ## Code Examples
 
-### Discover and move the Tasks dock left (verified seam)
+### Discover and move the Tasks dock left (verified seam — CORRECTED)
+> **SUPERSEDED:** `getDockContainer("Std_TaskView")` is NOT a reliable handle — the live dock
+> container objectName is **"Tasks"** (DockWindowManager.cpp:290/532 sets it from the widget
+> objectName; MainWindow.cpp:623 names the widget "Tasks"), and `addDockWindow()` early-returns for
+> an already-docked widget (DockWindowManager.cpp:256-258). Resolve the host from the known-good
+> `Control().taskPanel()` and walk up to its parent QDockWidget; re-dock that directly:
 ```cpp
-// Source: DockWindowManager.cpp:337 (getDockContainer) + MainWindow.cpp:620-628 (objectNames)
-auto* mgr = Gui::DockWindowManager::instance();
-QDockWidget* tasks = mgr->getDockContainer("Std_TaskView");   // container objectName
-// tasks->widget() is the Gui::TaskView::TaskView whose objectName is "Tasks"
-Gui::getMainWindow()->addDockWidget(Qt::LeftDockWidgetArea, tasks);  // preserves identity
+// Source: Control.cpp:55 (taskPanel→getDockWindow("Tasks")) + DockWindowManager.cpp:256-290
+QWidget* panel = Gui::Control().taskPanel();                    // the registered "Tasks" TaskView
+auto* dock = panel ? qobject_cast<QDockWidget*>(panel->parentWidget()) : nullptr;
+if (dock && Gui::getMainWindow()->dockWidgetArea(dock) != Qt::LeftDockWidgetArea) {
+    Gui::getMainWindow()->addDockWidget(Qt::LeftDockWidgetArea, dock);  // re-dock an existing dock
+}
+else if (!dock && panel) {
+    Gui::DockWindowManager::instance()->addDockWindow("Tasks", panel, Qt::LeftDockWidgetArea); // never-docked
+}
 ```
 
 ### Assert the host is reachable after the move (headless test shape)
@@ -313,10 +322,11 @@ Gui::getMainWindow()->addDockWidget(Qt::LeftDockWidgetArea, tasks);  // preserve
 // Source: pattern from tests/src/Gui/FwTestGuiBootstrap.h + Control.cpp:55
 tests::ensureGuiTestBootstrap();
 FreeWorksGui::FwLayout::mountPropertyManager();
-EXPECT_NE(Gui::Control().taskPanel(), nullptr);                 // still found via getDockWindow("Tasks")
+QWidget* panel = Gui::Control().taskPanel();
+EXPECT_NE(panel, nullptr);                                      // still found via getDockWindow("Tasks")
 EXPECT_EQ(Gui::getMainWindow()->dockWidgetArea(
-              Gui::DockWindowManager::instance()->getDockContainer("Std_TaskView")),
-          Qt::LeftDockWidgetArea);
+              qobject_cast<QDockWidget*>(panel->parentWidget())),
+          Qt::LeftDockWidgetArea);                              // the live container objectName is "Tasks"
 ```
 
 ### Map ✓/✗ header to existing accept/reject
