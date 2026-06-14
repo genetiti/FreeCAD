@@ -97,7 +97,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — Mount FwFeatureTree in Fw_FeatureManager: active-Body-scoped tree, Origin/Front-Top-Right planes, nested sketches, F2 rename, drag-to-reorder with validity BLOCK (TREE-01, TREE-04, TREE-03 F2)
+- [x] 03-02-PLAN.md — Mount FwFeatureTree in Fw_FeatureManager: active-Body-scoped tree, Origin/Front-Top-Right planes, nested sketches, F2 rename, drag-to-reorder with validity BLOCK (TREE-01, TREE-04, TREE-03 F2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

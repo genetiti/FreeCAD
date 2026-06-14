@@ -25,7 +25,7 @@ The user chose **full parity** for v1 — the complete SolidWorks part-modeling 
 
 - [x] **TREE-01**: User sees a left-docked FeatureManager design tree showing features in creation order, with an origin/planes node and sketches nested under their features *(T2)*
 - [x] **TREE-02**: User can drag a rollback bar in the tree to roll the model back to an earlier feature state and insert/edit mid-history *(T3)*
-- [ ] **TREE-03**: User can double-click a feature in the tree to open it for editing in the PropertyManager, and F2 to rename *(T8)*
+- [ ] **TREE-03**: User can double-click a feature in the tree to open it for editing in the PropertyManager, and F2 to rename *(T8)* — F2-rename half delivered in 03-02 (inherited relabel action live on the mounted FwFeatureTree); double-click-to-PropertyManager half remains for Phase 4
 - [x] **TREE-04**: User can drag features up/down in the tree to reorder history, with validity feedback *(T9)*
 
 ### PropertyManager

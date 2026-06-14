@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-06-14T16:35:13.686Z"
-last_activity: "2026-06-14 -- Phase 03 plan convergence complete (Codex, 0 HIGH); next: /gsd-execute-phase 3"
+status: in-progress
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-06-14T16:43:53.000Z"
+last_activity: "2026-06-14 -- Executed Phase 03 Plan 02 (FeatureManager mount + plane remap + scoping + DnD validity); next: 03-03"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
-  percent: 29
+  completed_plans: 10
+  percent: 33
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 3 of 7 (featuremanager-design-tree) — PLANNED + CONVERGED, READY TO EXECUTE
-Plan: 1 of 3 (03-01 → 03-02 → 03-03, strictly sequential)
-Status: Phase 03 plans CONVERGED via Codex cross-AI adversarial review — trajectory 7→2→0 HIGH over 3 cycles (internal plan-checker also PASSED). Source-grounding 30/30 then 13/13 verified. Wave 1 (03-01) = test scaffold + D-03 tree-reuse spike gate (blocking human-verify, no build tree → doc-approval per precedent); Waves 2/3 build on the verdict. Prereqs: CONTEXT/RESEARCH/VALIDATION/UI-SPEC/PATTERNS/REVIEWS all in place.
-Last activity: 2026-06-14 -- Phase 03 plan convergence complete (Codex, 0 HIGH); next: /gsd-execute-phase 3
+Phase: 3 of 7 (featuremanager-design-tree) — IN PROGRESS (Wave 2 complete)
+Plan: 3 of 3 (03-01 done → 03-02 done → 03-03 next, strictly sequential)
+Status: 03-01 (test scaffold + D-03 spike, reuse committed) and 03-02 (FeatureManager mount + FwFeatureTreeDelegate plane remap + active-Body scoping + F2 + DnD validity affordance) executed. Wave 3 (03-03 rollback bar / TREE-02) is the remaining slice. Tests authored compile-intended, pending CI (no build tree in env).
+Last activity: 2026-06-14 -- Executed Phase 03 Plan 02 (FeatureManager mount + plane remap + scoping + DnD validity); next: 03-03
 
-Progress: [███░░░░░░░] 2 of 7 phases complete (29%)
+Progress: [███░░░░░░░] 2 of 7 phases complete (33%)
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [███░░░░░░░] 2 of 7 phases complete (29%)
 | Phase 02 P03 | 6 | 2 tasks | 7 files |
 | Phase 02 P04 | 5 | 2 tasks | 7 files |
 | Phase 03 P01 | 511 | 3 tasks | 9 files |
+| Phase 03 P02 | 396 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,11 @@ Recent decisions affecting current work:
 - [Phase ?]: Spike A verdict: reuse committed — thin FwFeatureTree : Gui::TreeWidget is the committed FeatureManager engine for Plans 03-02/03-03 (scoping via recursive setHidden over the DocumentItem->Body topology, proven by a REAL two-Body QTEST)
 - [Phase ?]: Active Body identified by 'PartDesign::Body' type-name literal only; no PartDesign include/link; link-free Group read via getPropertyByName('Group')
 - [Phase ?]: Phase 3 spike gate cleared by documentation approval (no build tree); live demonstrations deferred to FwFeatureTree_SPIKE_LIVE_CHECKLIST.md
+- [Phase 03]: [03-02]: FwFeatureTreeDelegate remaps origin planes XY/XZ/YZ -> Front/Top/Right DISPLAY-ONLY via initStyleOption (object Label never written); role resolved through the stock item-object path (itemFromIndex -> DocumentObjectItem::object() -> getPropertyByName('Role')), no Datums/PartDesign link
+- [Phase 03]: [03-02]: Below-tip greying is a Gui-only item data role (kBelowTipRole = Qt::UserRole+4201) painted with QPalette::Disabled Text — never an App property; Plan 03-03 sets the flag, this plan provides the palette-driven paint hook
+- [Phase 03]: [03-02]: FwLayout mounts FwFeatureTree under Fw_FeatureManager via find-or-reuse (unregister placeholder, re-register tree under the SAME objectName) so saveState round-trips; mirrors mountRibbon discipline, DockWindowManager only
+- [Phase 03]: [03-02]: DnD validity affordance calls Gui::TreeWidget::dragMoveEvent FIRST then only decorates event->isAccepted()==false with Qt::ForbiddenCursor + no insertion line (no transaction on BLOCK); never re-implements/re-calls the drop gate (TREE-04, D-10/D-11/D-12)
+- [Phase 03]: [03-02]: A1 plane correspondence (Front=XY/Top=XZ/Right=YZ) carried forward for the daily-SW-user parity check; live remap/scoping/F2/DnD demos deferred to FwFeatureTree_SPIKE_LIVE_CHECKLIST.md (no build tree)
 
 ### Pending Todos
 
@@ -119,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T16:34:42.080Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/phases/03-featuremanager-design-tree/03-UI-SPEC.md
+Last session: 2026-06-14T16:43:53.000Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None
