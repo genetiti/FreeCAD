@@ -25,6 +25,8 @@ set(FreeWorks_CPP_SRCS
     FwRibbonContext.cpp
     FwFeatureTree.cpp
     FwFeatureTreeDelegate.cpp
+    FwSelectionGuard.cpp
+    FwRollbackBar.cpp
 )
 
 set(FreeWorks_HPP_SRCS
@@ -38,6 +40,8 @@ set(FreeWorks_HPP_SRCS
     FwRibbonContext.h
     FwFeatureTree.h
     FwFeatureTreeDelegate.h
+    FwSelectionGuard.h
+    FwRollbackBar.h
 )
 
 set(FreeWorks_SRCS
