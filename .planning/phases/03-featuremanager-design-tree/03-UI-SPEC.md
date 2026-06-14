@@ -1,7 +1,8 @@
 ---
 phase: 3
 slug: featuremanager-design-tree
-status: draft
+status: approved
+reviewed_at: 2026-06-14
 shadcn_initialized: false
 preset: none
 created: 2026-06-14
