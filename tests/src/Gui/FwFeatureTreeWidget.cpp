@@ -6,6 +6,8 @@
 #include <QAction>
 #include <QKeySequence>
 #include <QList>
+#include <QModelIndex>
+#include <QStyleOptionViewItem>
 #include <QTest>
 #include <QTreeWidgetItem>
 #include <QWidget>
@@ -13,6 +15,7 @@
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
+#include <App/PropertyStandard.h>
 
 #include <Base/Interpreter.h>
 
@@ -23,6 +26,7 @@
 #include <Gui/ViewProviderDocumentObject.h>
 
 #include <src/Gui/FreeWorks/FwFeatureTree.h>
+#include <src/Gui/FreeWorks/FwFeatureTreeDelegate.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -74,6 +78,45 @@ QTreeWidgetItem* findItemByObjectName(QTreeWidgetItem* root, const std::string& 
     }
     return nullptr;
 }
+
+// Find the first tree item whose underlying App object carries the given internal
+// "Role" PropertyString value (e.g. "XY_Plane"), descending the REAL nested topology
+// — the same generic-accessor path the delegate uses to resolve the plane role.
+QTreeWidgetItem* findItemByRole(QTreeWidgetItem* root, const std::string& roleValue)
+{
+    for (int i = 0; i < root->childCount(); ++i) {
+        QTreeWidgetItem* child = root->child(i);
+        App::DocumentObject* o = objectOfItem(child);
+        if (o != nullptr) {
+            const App::Property* prop = o->getPropertyByName("Role");
+            const auto* roleProp = dynamic_cast<const App::PropertyString*>(prop);
+            if (roleProp != nullptr && roleValue == roleProp->getValue()) {
+                return child;
+            }
+        }
+        if (QTreeWidgetItem* found = findItemByRole(child, roleValue)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+// Expose the protected display-text remap so the QTEST can assert the rendered text
+// without painting to a surface (initStyleOption is the display-only seam the delegate
+// overrides; option.text after it holds exactly what the row would render).
+class ProbeDelegate: public FreeWorksGui::FwFeatureTreeDelegate
+{
+public:
+    explicit ProbeDelegate(QObject* parent)
+        : FreeWorksGui::FwFeatureTreeDelegate(parent)
+    {}
+    QString renderedText(const QModelIndex& index) const
+    {
+        QStyleOptionViewItem opt;
+        initStyleOption(&opt, index);
+        return opt.text;
+    }
+};
 }  // namespace
 
 // FwFeatureTree is a QWidget (Gui::TreeWidget subclass); constructing it REQUIRES a
@@ -202,6 +245,75 @@ private Q_SLOTS:
         const QString firstType(firstObj->getTypeId().getName());
         QVERIFY2(firstType.contains(QStringLiteral("Origin")),
                  "the active Body's Origin must render first among the visible rows");
+    }
+
+    // TREE-01 / D-08 — the FwFeatureTreeDelegate plane DISPLAY-NAME remap, resolved
+    // through the STOCK tree item-object path (no fabricated model).
+    //
+    // Build a real Body whose Origin owns the three stock planes (each an App::Plane
+    // DatumElement carrying a "Role" PropertyString of XY_Plane / XZ_Plane / YZ_Plane).
+    // Install the delegate on the tree, then assert the RENDERED display text is
+    // "Front Plane" / "Top Plane" / "Right Plane" — and that the underlying objects'
+    // Label values are UNCHANGED (display-only remap, the object is never mutated).
+    void test_DelegateRemapsPlaneDisplayNamesThroughStockItemPath()
+    {
+        ensureRealMainWindow();
+
+        Base::Interpreter().runString(
+            "import FreeCAD as App\n"
+            "import FreeCADGui as Gui\n"
+            "doc = App.newDocument('FwPlaneRemapDoc')\n"
+            "Gui.activeDocument()\n"
+            "body = doc.addObject('PartDesign::Body', 'Body')\n"
+            "doc.recompute()\n");
+
+        App::Document* appDoc = App::GetApplication().getDocument("FwPlaneRemapDoc");
+        QVERIFY2(appDoc != nullptr, "the plane-remap document must exist");
+
+        auto tree = std::make_unique<FreeWorksGui::FwFeatureTree>("FwFeatureManager", nullptr);
+        Gui::Document* guiDoc = Gui::Application::Instance->getDocument(appDoc);
+        QVERIFY2(guiDoc != nullptr, "a Gui::Document must mirror the App::Document");
+        tree->setDocument(guiDoc);
+
+        // The delegate is parented to the tree so it resolves rows via the tree's
+        // itemFromIndex() — the stock item-object path.
+        auto* probe = new ProbeDelegate(tree.get());
+
+        QTreeWidgetItem* root = tree->invisibleRootItem();
+        struct Expectation
+        {
+            const char* role;
+            QString display;
+        };
+        const Expectation cases[3] = {
+            {"XY_Plane", FreeWorksGui::FwFeatureTreeDelegate::frontPlaneName()},
+            {"XZ_Plane", FreeWorksGui::FwFeatureTreeDelegate::topPlaneName()},
+            {"YZ_Plane", FreeWorksGui::FwFeatureTreeDelegate::rightPlaneName()},
+        };
+
+        for (const Expectation& exp : cases) {
+            QTreeWidgetItem* item = findItemByRole(root, exp.role);
+            QVERIFY2(item != nullptr, "each origin plane must have a tree item (stock topology)");
+            App::DocumentObject* planeObj = objectOfItem(item);
+            QVERIFY2(planeObj != nullptr, "the plane row must resolve to an App object");
+            const std::string labelBefore = planeObj->Label.getValue();
+
+            const QModelIndex index = tree->indexFromItem(item);
+            const QString rendered = probe->renderedText(index);
+            QCOMPARE(rendered, exp.display);
+
+            // The underlying Label is NEVER written by the display-only remap (D-08).
+            QCOMPARE(QString::fromStdString(planeObj->Label.getValue()),
+                     QString::fromStdString(labelBefore));
+        }
+
+        // A non-plane row (the Body itself) is a pass-through: its rendered text is the
+        // stock Label, never one of the plane display names.
+        QTreeWidgetItem* bodyItem = findItemByObjectName(root, "Body");
+        QVERIFY2(bodyItem != nullptr, "the Body must have a tree item");
+        const QString bodyRendered = probe->renderedText(tree->indexFromItem(bodyItem));
+        QVERIFY2(bodyRendered != FreeWorksGui::FwFeatureTreeDelegate::frontPlaneName(),
+                 "a non-plane row must pass through (never a plane display name)");
     }
 };
 
