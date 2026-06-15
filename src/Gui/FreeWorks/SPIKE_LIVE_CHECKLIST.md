@@ -182,3 +182,116 @@ has at least two solid features and a sketch.
 - Verified by: _pending_  ·  Date: _pending_
 - Result: **☐ pending** — open obligation; not yet run on a live build (no build tree /
   GUI / reference-CAD install in the authoring environment).
+
+---
+
+## Phase 4 — PropertyManager live FEEL obligations
+
+These are the **live-only / FEEL** residue of Phase 4 (the left-hosted PropertyManager: the
+re-hosted `Gui::Control`/`TaskView` in the left slot, the green-check/red-cross header, the
+pink active reference box, SW key/focus semantics, and the sketch→feature loop). The
+**logic halves are already green-by-construction** in the Wave 0 headless tests
+cross-referenced below; what remains here is what a headless target cannot judge: the
+on-screen FEEL, the live edit-time workbench-switch behavior, and a daily reference-CAD
+user's parity verdict. Each item is **OPEN / DEFERRED** — this authoring environment has
+**no build tree, no live GUI, and no reference-CAD install** (the Phase 1/2/3
+verification-deferral precedent). **Nothing below is fabricated as observed.**
+
+> Naming (D-03): this file is scanned by `tools/fw-string-leak-grep.sh`, so it carries **no
+> bare trademark token**. The reference product is "reference CAD" / the "SW" abbreviation
+> throughout, exactly as the Phase-2/3 sections above.
+
+### What the Wave 0 tests already prove (do NOT re-do manually)
+
+| Logic invariant | Where it is proven |
+|-----------------|--------------------|
+| FLOW-01 sketch identification is link-free (type-name string `"SketcherGui::ViewProviderSketch"`, no Sketcher include) and never auto-launches a feature | `tests/src/Gui/FwPropertyManager.cpp` (`flowDecisionSelectsOnlyForTheSketchContractLiteral`, `flowDecisionNeverAutoLaunchesAFeatureCommand`) |
+| Header green-check→`Control().accept()`, red-cross→`Control().reject()` — distinct slots, no new commit pipeline | `tests/src/Gui/FwPropertyManager.cpp` (`headerMapsCheckToAcceptAndCrossToReject`, `controlSingletonExposesAcceptRejectTargets`) |
+| The panel host is a `TaskView` (non-modal dock), never a `QDialog::exec()` path | `tests/src/Gui/FwPropertyManager.cpp` (`panelHostIsTaskViewNotAModalDialog`) |
+| Pink active-box state machine: exactly one active, revert on deactivate; the active tone READ off the box widget's local `QPalette::Midlight` role (no hex, never blue) | `tests/src/Gui/FwReferenceBoxStyler.cpp` (`exactlyOneBoxActiveAtATime`, `activeToneIsReadFromTheLocalPaletteRole`, `activeToneIsNeverTheReservedBlue`) |
+| A real MainWindow registers the Tasks `TaskView` (objectName `"Tasks"`) resolvable offscreen — the baseline the 04-02 left-placement test extends | `tests/src/Gui/FwPropertyManagerWidget.cpp` (`test_bootstrap_taskView_resolvable`) |
+
+### Manual checks — record PASS/FAIL with observed values
+
+Run against a live reference-CAD-style FreeWorks build with a real PartDesign Body that has
+at least one sketch and a linear-pattern (2-direction) feature.
+
+- [ ] **(1) Slide-in reveal FEEL (PROP-01 / D-08).** Start a feature/sketch command or
+  double-click a tree feature. *Expect:* the PropertyManager appears left-docked (a short
+  width/visibility reveal, or instant — D-08 permits instant). *Why deferred:* live GUI.
+  *Logic half green:* the non-modal TaskView-host + resolvable Tasks dock tests.
+
+- [ ] **(2) Pink active-box pick FEEL (PROP-02 / D-05/D-06), against the REAL
+  `TaskPatternParameters` panel.** Edit a linear-pattern feature (two direction reference
+  boxes). Click into one box. *Expect:* exactly THAT box turns pink (the
+  `QPalette::Midlight` active tone), picking geometry fills it + highlights + auto-expands,
+  clicking the second box moves the pink to it (the first reverts), and the pink is never
+  the reserved blue. **Confirm the CORRECT real box colors** (the focus-inference-first
+  default must color the armed `activeDirectionWidget`, not the wrong one — A3 / R6-MAJOR2;
+  if it colors the wrong box, the gated `// SW-FORK HOOK` accessor on
+  `TaskPatternParameters.{h,cpp}` is promoted into 04-03). *Why deferred:* live focus +
+  3D pick. *Logic half green:* the pink state-machine + read-the-role tests.
+
+- [ ] **(3) SW Enter / Esc / Tab FEEL (D-10).** With the panel open: Enter → accept
+  (green-check), Esc → reject (red-cross), Tab → advance to the next field / reference box.
+  *Expect:* SW key muscle-memory holds; Tab does not get stuck or leak focus to the 3D view.
+  *Why deferred:* live focus chain. *Logic half green:* the header→accept/reject mapping.
+
+- [ ] **(4) Sketch→feature loop FEEL (FLOW-01 / D-11) — BOTH halves surviving the edit-time
+  WB switch (R6-MAJOR1).** Exit a sketch. *Expect:* (a) the just-finished sketch stays
+  PERSISTENTLY selected as the profile, AND (b) the ribbon lands the Features tab ready —
+  with NO feature auto-launched (the user clicks Extrude/Revolve). **Both halves must
+  survive** the Sketcher-edit workbench round-trip (the sketch edit transiently activates
+  `SketcherWorkbench`). *Why deferred:* live edit lifecycle. *Logic half green:* the FLOW-01
+  decision-core (select-and-handoff, never auto-launch).
+
+- [ ] **(5) A2 — dock stays left through the WB-switch round-trip.** Double-click a
+  PartDesign feature in the tree (PartDesign `setEdit` transiently activates
+  `PartDesignWorkbench` via `assureWorkbench`). *Expect:* the `"Tasks"` dock STAYS LEFT
+  through the round-trip — it does NOT jump back right mid-edit (A2: no synchronous
+  right-move on `deactivated()`). *Why deferred:* live WB switch.
+
+- [ ] **(6) A4 — overlays SURVIVE the edit-time WB switch (R3-ROOT/R4-BLOCKER/R6-MAJOR1).**
+  On the same double-click edit (and on a sketch edit): *Expect:* the FreeWorks chrome —
+  the header, the key filter, the pink styler — AND the FLOW-01 reset handler BOTH halves
+  still FUNCTION through the edit-time WB switch. Concretely: a tree double-click of a
+  PartDesign feature opens the panel LEFT **with** the chrome (header/keys/pink), and a
+  sketch exit still auto-selects the sketch AND lands the Features tab. *Expect FAIL signal:*
+  the panel opens chrome-less, or the sketch-exit selection / Features-tab half does not
+  fire (the chrome / handler was torn down mid-edit). *Why deferred:* live edit lifecycle.
+
+- [ ] **(7) Synchronous-within-one-turn confirmation (the basis the singleShot cancellation
+  relies on).** Confirm at runtime that the `assureWorkbench → deactivated() → activated() →
+  setEdit() → signalInEdit` sequence is ONE synchronous event-loop turn, so a
+  `QTimer::singleShot(0)` teardown scheduled in `deactivated()` does NOT fire until AFTER
+  `signalInEdit` has cancelled it. *Expect:* no teardown fires between `deactivated()` and
+  `signalInEdit` within the same turn. *Why deferred:* needs a live event loop to observe
+  the ordering. *If FALSE:* the deferred-cancellable teardown (A4) does not hold and the A4
+  `overlays-lost` escalation triggers.
+
+- [ ] **(8) Cross-phase ribbon observation (carried from A4 — flag, do NOT patch here).**
+  Confirm whether the Phase 2-3 ribbon (`s_ribbonContext`, reset synchronously in
+  `unmountRibbon` at `FwLayout.cpp:280-286`) ALSO vanishes during an edit-time WB switch
+  (the same synchronous-teardown-on-deactivated pattern). *Expect:* if it vanishes, file a
+  follow-up for the ribbon to adopt the same deferred-cancellable teardown — **do not patch
+  the shipped Phase 2-3 code in Phase 4.**
+
+- [ ] **(9) Type-name literal live re-validation (Pitfall 2 / carried).** Confirm
+  `"SketcherGui::ViewProviderSketch"` still matches the live sketch view-provider type on
+  the current `main` (an upstream rename silently breaks FLOW-01).
+
+### Outcome
+
+- **All items PASS** → the Phase-4 PROP-01/PROP-02/TREE-03/FLOW-01 FEEL obligations and the
+  A2/A4 survivability observations are confirmed on hardware; close by recording the sign-off
+  below and noting it in `04-01-SUMMARY.md` (and the downstream plan summaries).
+- **Any item FAIL** → file the regression against the cross-referenced Wave 0 logic test (if
+  the logic is wrong) or against the FEEL/parity track (if only the feel is off). A FAIL on
+  (6)/(7) triggers the A4 `overlays-lost` escalation; a wrong-box FAIL on (2) promotes the
+  A3 gated `// SW-FORK HOOK` accessor; an A1 FAIL flips the verdict to `thin-adopt`.
+
+### Sign-off (Phase 4)
+
+- Verified by: _pending_  ·  Date: _pending_
+- Result: **☐ pending** — open obligation; not yet run on a live build (no build tree /
+  GUI / reference-CAD install in the authoring environment).
