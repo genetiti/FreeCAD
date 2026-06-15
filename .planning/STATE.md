@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 04 Plan 01 complete (D-03 spike approved — reuse-and-rehost)
-last_updated: "2026-06-15T02:03:23.307Z"
-last_activity: 2026-06-15 -- Phase 04 Plan 01 complete (Wave 0 scaffold + D-03 spike approved)
+stopped_at: Phase 04 Plan 02 complete (PROP-01 core slice — left-dock + ✓/✗ header + deferred-cancellable teardown)
+last_updated: "2026-06-15T02:32:12.000Z"
+last_activity: 2026-06-15 -- Phase 04 Plan 02 complete (PROP-01 core vertical slice)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 15
-  completed_plans: 12
-  percent: 46
+  completed_plans: 13
+  percent: 49
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 04 (propertymanager-panel) — EXECUTING
-Plan: 2 of 4 (next)
-Status: Executing Phase 04 (Plan 01 complete)
-Last activity: 2026-06-15 -- Phase 04 Plan 01 complete (Wave 0 scaffold + D-03 spike approved)
+Plan: 3 of 4 (next)
+Status: Executing Phase 04 (Plans 01-02 complete)
+Last activity: 2026-06-15 -- Phase 04 Plan 02 complete (PROP-01 core vertical slice)
 
-Progress: [████░░░░░░] 3 of 7 phases complete; Phase 4 Plan 01/04 done — D-03 engine committed (~46%)
+Progress: [█████░░░░░] 3 of 7 phases complete; Phase 4 Plan 02/04 done — PROP-01 core slice committed (~49%)
 
 ## Performance Metrics
 
@@ -63,6 +63,8 @@ Progress: [████░░░░░░] 3 of 7 phases complete; Phase 4 Plan 
 | Phase 03 P01 | 511 | 3 tasks | 9 files |
 | Phase 03 P02 | 396 | 2 tasks | 8 files |
 | Phase 03 P03 | ~720* | 3 tasks | 10 files |
+| Phase 04 P01 | — | 3 tasks | 7 files |
+| Phase 04 P02 | ~12 | 2 tasks | 9 files |
 
 *03-03 duration estimated from commit timestamps (feat commits 11:53–11:58 CDT) — not instrumented (gsd-tools off PATH; closed out during resume).
 
@@ -113,6 +115,10 @@ Recent decisions affecting current work:
 - [Phase 04]: [04-01]: A2 dock-stays-left — the 'Tasks' dock is NOT moved right synchronously on deactivated(); the activeDialog() guard AND a pre-checked edit-in-progress flag are BOTH too late under the deactivated-before-activated-before-signalInEdit ordering (R2-F2/R4-BLOCKER)
 - [Phase 04]: [04-01]: A4 overlays-survive — deferred-cancellable teardown: deactivated() SCHEDULES a QTimer::singleShot(0) teardown cancelled by signalInEdit / re-activation within the same synchronous activateWorkbench turn, so chrome + BOTH FLOW-01 halves (selection AND Features-tab-ready) survive the edit-time WB switch; Phase 2-3 ribbon shares the same synchronous-teardown pattern (cross-phase observation, NOT patched here)
 - [Phase 04]: [04-01]: A3 active-box — focus-inference-first by DEFAULT (no shared-file edit) validated against the real TaskPatternParameters 2-field panel; gated // SW-FORK HOOK accessor on TaskPatternParameters.{h,cpp} only if focus inference proven insufficient (R6-MAJOR2); pink via QPalette::Midlight role populated by a now-functional FwTheme::apply() (R2-F6); spike gate cleared by documentation approval (Phase 1-3 precedent), live observations deferred to SPIKE_LIVE_CHECKLIST.md (§ Phase 4)
+- [Phase 04]: [04-02]: PROP-01 core slice — FwLayout::mountPropertyManager() left-docks the managed 'Tasks' PropertyManager by the two-branch mechanism (re-dock-existing-left via getMainWindow()->addDockWidget(Left,dock) | create-left via addDockWindow when never-docked, R2-F1); resolved from Control().taskPanel() walk-up; 'Tasks' objectName preserved (R2-F3); no Control/TaskView/MainWindow body edit
+- [Phase 04]: [04-02]: R3-MAJOR3 disposition (i) — STOP CONTRIBUTING Fw_PropertyManager (dropped from install() + setupDockWindows()); removeStalePropertyManagerDock() (live-dock removeDockWindow path) as defense for restored layouts — NEVER unregisterDockWindow+deleteLater
+- [Phase 04]: [04-02]: A4 deferred-cancellable teardown realized via FwPropertyReveal — unmountPropertyManager() SCHEDULES a QTimer::singleShot(0) teardown guarded by a monotonic GENERATION TOKEN (singleShot returns void, so cancel()/re-schedule bump the token to no-op a queued lambda — race-free without owning the QTimer); signalInEdit cancels + re-asserts left placement; consumer owned SEPARATELY from s_ribbonContext so it survives the transient deactivated(); true-exit teardown calls disconnect() NOT reset() (runs from inside the consumer's own queued lambda)
+- [Phase 04]: [04-02]: FwPropertyManagerHeader — thin 32px ✓/✗ band → Gui::Control().accept()/reject() (no new commit logic); attached as the dock's setTitleBarWidget (container-level, inner TaskView never reparented), released only by the deferred teardown so it survives the edit-time WB switch; palette-role-derived green(120deg)/red(0deg) tints off QPalette::Highlight (no hex / no setStyleSheet color literal, D-06); tooltips 'Accept (Enter)'/'Cancel (Esc)'; leak-grep clean. Live placement/WB-switch FEEL deferred to SPIKE_LIVE_CHECKLIST.md § Phase 4
 
 ### Pending Todos
 
@@ -138,5 +144,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-06-15
-Stopped at: Phase 04 Plan 01 complete (D-03 spike approved — reuse-and-rehost); next Plan 04-02
-Resume file: .planning/phases/04-propertymanager-panel/04-02-PLAN.md
+Stopped at: Phase 04 Plan 02 complete (PROP-01 core slice — left-dock + ✓/✗ header + deferred-cancellable teardown); next Plan 04-03
+Resume file: .planning/phases/04-propertymanager-panel/04-03-PLAN.md
