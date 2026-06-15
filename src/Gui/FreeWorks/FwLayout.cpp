@@ -27,6 +27,7 @@
 // Include the Qt widget headers this TU uses unconditionally. Do NOT rely on the
 // PCH (which transitively pulls in Gui/QtAll.h) to supply them: a non-PCH build
 // path, or a future trimming of QtAll.h, would otherwise break this TU (WR-04).
+#include <QDockWidget>
 #include <QLabel>
 #include <QList>
 #include <QMenuBar>
@@ -34,14 +35,17 @@
 
 #include <Gui/Application.h>
 #include <Gui/Command.h>
+#include <Gui/Control.h>
 #include <Gui/DockWindowManager.h>
 #include <Gui/MainWindow.h>
+#include <Gui/TaskView/TaskView.h>
 #include <Gui/ToolBarManager.h>
 #include <Gui/Workbench.h>
 #include <Gui/WorkbenchManager.h>
 
 #include "FwFeatureTree.h"
 #include "FwLayout.h"
+#include "FwPropertyReveal.h"
 #include "FwRibbon.h"
 #include "FwRibbonContext.h"
 
@@ -57,6 +61,11 @@ bool FwLayout::s_menuBarWasNative = false;
 // Exactly ONE context switcher for the FreeWorks-mode lifetime. unique_ptr so its
 // scoped fastsignals connections are released on reset() at teardown.
 std::unique_ptr<FwRibbonContext> FwLayout::s_ribbonContext;
+
+// --- PropertyManager reveal + deferred-cancellable teardown (PROP-01) --------
+// Owned SEPARATELY from s_ribbonContext (which is reset on the transient deactivated()
+// by unmountRibbon()) so it SURVIVES the edit-time workbench switch (the A4 verdict).
+std::unique_ptr<FwPropertyReveal> FwLayout::s_propertyReveal;
 
 const char* FwLayout::ribbonToolBarObjectName()
 {
@@ -169,10 +178,13 @@ void FwLayout::install()
     // objectName so the saved layout round-trips). PropertyManager / Task Pane stay
     // placeholders until their phases.
     mountFeatureManager(manager);
-    ensureDock(manager,
-               "Fw_PropertyManager",
-               QObject::tr("PropertyManager"),
-               QObject::tr("PropertyManager (Phase 4)"));
+    // Fw_PropertyManager is DELIBERATELY no longer registered here (Plan 04-02,
+    // R3-MAJOR3 disposition (i) — "stop contributing"). The left PropertyManager slot
+    // is occupied by the re-hosted "Tasks" TaskView that mountPropertyManager() docks
+    // left (D-03 reuse-and-rehost). Registering a Fw_PropertyManager placeholder would
+    // make DockWindowManager::setup() create a SECOND live left QDockWidget that the
+    // mount would then have to remove async (stranding a stale surface). Not creating it
+    // at all is the clean fix.
     ensureDock(manager,
                "Fw_TaskPane",
                QObject::tr("Task Pane"),
@@ -371,4 +383,138 @@ void FwLayout::restoreStockChrome()
     }
 
     s_chromeHidden = false;
+}
+
+namespace
+{
+
+/// Resolve the managed "Tasks" PropertyManager dock and place it in the LEFT area by
+/// the CORRECT mechanism (R2-F1 — addDockWindow CANNOT move an already-docked panel,
+/// DockWindowManager.cpp:256-258). Returns the hosting QDockWidget on success (already
+/// left or just re-docked/created left), or nullptr if no host could be resolved.
+///
+/// The host is resolved ROBUSTLY from Gui::Control().taskPanel() walked UP to its parent
+/// QDockWidget — never a hardcoded container-name guess against the registry key (the
+/// live container objectName is "Tasks", not the registry key, so such a lookup may
+/// return nullptr). getDockWindow("Tasks") / taskPanel() are parent-independent
+/// registry/dock-list lookups, so re-docking preserves them (R2-F3). Idempotent:
+/// already-left is a no-op.
+QDockWidget* placeTasksDockLeft()
+{
+    Gui::MainWindow* mw = Gui::getMainWindow();
+    Gui::DockWindowManager* manager = Gui::DockWindowManager::instance();
+    if (mw == nullptr || manager == nullptr) {
+        return nullptr;
+    }
+
+    // Walk up from the live task panel to its parent QDockWidget (the "Tasks" container).
+    Gui::TaskView::TaskView* taskPanel = Gui::Control().taskPanel();
+    auto* dock =
+        qobject_cast<QDockWidget*>(taskPanel != nullptr ? taskPanel->parentWidget() : nullptr);
+
+    if (dock != nullptr) {
+        if (mw->dockWidgetArea(dock) == Qt::LeftDockWidgetArea) {
+            return dock;  // already left — idempotent no-op
+        }
+        // Came-from-right-dock case: re-dock the EXISTING container left DIRECTLY
+        // (addDockWindow would NOT move it — DockWindowManager.cpp:256-258).
+        mw->addDockWidget(Qt::LeftDockWidgetArea, dock);
+        dock->show();
+        return dock;
+    }
+
+    // Never-docked case (FreeWorks mode, F1: setupDockWindows() never returns
+    // Std_TaskView, so no live "Tasks" dock exists). Resolve the registered Tasks
+    // TaskView widget (objectName "Tasks", registry key "Std_TaskView") and CREATE the
+    // dock left; the NEW-dock branch sets the container objectName to "Tasks"
+    // (DockWindowManager.cpp:290) so getDockWindow("Tasks") resolves afterwards.
+    QWidget* taskView = manager->findRegisteredDockWindow("Std_TaskView");
+    if (taskView == nullptr) {
+        return nullptr;
+    }
+    QDockWidget* created = manager->addDockWindow("Tasks", taskView, Qt::LeftDockWidgetArea);
+    if (created != nullptr) {
+        created->show();
+    }
+    return created;
+}
+
+/// Remove a stale live Fw_PropertyManager dock if one exists (defense-in-depth for the
+/// R3-MAJOR3 post-setup state — even though disposition (i) stops contributing it, a
+/// restored layout or a future re-registration must never leave a second left surface).
+/// Uses the live-dock removal path (removeDockWindow by name), NOT the pre-setup
+/// unregisterDockWindow+deleteLater (which only clears registry state and async-deletes
+/// via onWidgetDestroyed, stranding the dock).
+void removeStalePropertyManagerDock()
+{
+    Gui::DockWindowManager* manager = Gui::DockWindowManager::instance();
+    if (manager == nullptr) {
+        return;
+    }
+    if (manager->getDockWindow("Fw_PropertyManager") != nullptr) {
+        // removeDockWindow(name) destroys the QDockWidget container and returns the inner
+        // placeholder widget (parented to nullptr); delete it so nothing is stranded.
+        QWidget* inner = manager->removeDockWindow("Fw_PropertyManager");
+        if (inner != nullptr) {
+            inner->deleteLater();
+        }
+    }
+}
+
+}  // namespace
+
+void FwLayout::mountPropertyManager()
+{
+    // Reachability guard: no-op until the live shell exists.
+    if (Gui::getMainWindow() == nullptr || Gui::DockWindowManager::instance() == nullptr) {
+        return;
+    }
+
+    // Place the managed "Tasks" PropertyManager dock left (idempotent, two-branch — R2-F1).
+    placeTasksDockLeft();
+
+    // R3-MAJOR3: ensure no stale Fw_PropertyManager dock pollutes the single left surface.
+    removeStalePropertyManagerDock();
+
+    // (Re)bind the survivable reveal/teardown consumer and CANCEL any pending teardown a
+    // prior unmountPropertyManager() scheduled — re-mounting pre-empts the queued
+    // singleShot (the A4 deferred-cancellable policy). Owned SEPARATELY from
+    // s_ribbonContext so it survives the transient deactivated().
+    if (!s_propertyReveal) {
+        s_propertyReveal = std::make_unique<FwPropertyReveal>();
+    }
+    s_propertyReveal->cancel();
+    // The signalInEdit handler re-asserts the idempotent left placement when an edit
+    // lands (covers the assureWorkbench WB round-trip — signalInEdit fires after
+    // startEditing but within the same synchronous turn as deactivated()).
+    s_propertyReveal->connect([]() {
+        placeTasksDockLeft();
+    });
+}
+
+void FwLayout::unmountPropertyManager()
+{
+    // The A4 deferred-cancellable policy: do NOT tear down inline. An edit-time WB switch
+    // fires deactivated() mid-edit BEFORE signalInEdit arms anything (Application.cpp:1984
+    // before :2006; ViewProvider.cpp:165 before :175), so a synchronous teardown — or one
+    // gated on a pre-checked flag still FALSE at that instant (R4-BLOCKER) — would move the
+    // "Tasks" dock back right (R2-F2) and strip the chrome (R3-ROOT). Instead SCHEDULE a
+    // cancellable QTimer::singleShot(0) teardown; signalInEdit / a re-mount cancel it
+    // within the same event-loop turn so the chrome + placement survive the round-trip.
+    if (!s_propertyReveal) {
+        return;  // nothing mounted
+    }
+    s_propertyReveal->schedule([]() {
+        // True-exit teardown (only runs when a genuine no-edit FreeWorks->stock switch
+        // left the pending teardown uncancelled). Drop the subscriptions so no signal
+        // fires into a torn-down chrome — disconnect() (NOT reset()), because this
+        // callback runs FROM INSIDE s_propertyReveal's own queued lambda: resetting the
+        // unique_ptr would destroy the object mid-stack. The consumer object persists for
+        // the FreeWorks-mode lifetime; a later mountPropertyManager() re-connects it.
+        // Leaving the "Tasks" dock left is harmless under stock workbenches (the optional
+        // right-restore is a nicety, not a need).
+        if (s_propertyReveal) {
+            s_propertyReveal->disconnect();
+        }
+    });
 }

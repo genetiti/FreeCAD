@@ -34,6 +34,7 @@ namespace FreeWorksGui
 {
 
 class FwRibbonContext;
+class FwPropertyReveal;
 
 /**
  * Installer for the FreeWorks dock shell + ribbon command surface.
@@ -87,6 +88,45 @@ public:
     /// snapshot is held.
     static void restoreStockChrome();
 
+    /**
+     * Left-dock the managed PropertyManager dock — the existing "Tasks" TaskView
+     * container (D-03 reuse-and-rehost) — into Qt::LeftDockWidgetArea (PROP-01).
+     *
+     * The host is resolved ROBUSTLY from @c Gui::Control().taskPanel() by walking UP to
+     * its parent QDockWidget, then branching on
+     * @c getMainWindow()->dockWidgetArea(dock) (R2-F1 — @c addDockWindow CANNOT move an
+     * already-docked panel, DockWindowManager.cpp:256-258):
+     *   - already left  -> no-op (idempotent);
+     *   - non-left dock -> re-dock the EXISTING container left via
+     *     @c Gui::getMainWindow()->addDockWidget(Qt::LeftDockWidgetArea, dock)
+     *     (the came-from-right-dock case);
+     *   - never-docked  -> resolve the registered Tasks TaskView via
+     *     @c findRegisteredDockWindow("Std_TaskView") and CREATE the dock left via
+     *     @c addDockWindow("Tasks", taskView, Qt::LeftDockWidgetArea).
+     * The "Tasks" container objectName + inner-widget objectName are preserved so
+     * @c getDockWindow("Tasks") / @c Control().taskPanel() keep resolving (R2-F3) and
+     * a saved layout round-trips.
+     *
+     * The reveal + deferred-cancellable-teardown consumer (s_propertyReveal, owned
+     * SEPARATELY from s_ribbonContext) is (re)bound here; binding/re-mounting CANCELS
+     * any pending teardown scheduled by a prior unmountPropertyManager(). No-op if the
+     * main window / DockWindowManager are not yet available.
+     */
+    static void mountPropertyManager();
+
+    /**
+     * SCHEDULE the true-exit teardown of the PropertyManager chrome (the A4
+     * deferred-cancellable policy) — does NOT tear down inline. Because an edit-time
+     * workbench switch fires deactivated() mid-edit BEFORE signalInEdit arms anything
+     * (R3-ROOT/R4-BLOCKER), a synchronous teardown (or one gated on a pre-checked flag
+     * still false at that instant) would move the "Tasks" dock back right (R2-F2) and
+     * strip the chrome. Instead this posts a cancellable QTimer::singleShot(0) teardown
+     * and stores its pending handle on s_propertyReveal; the teardown only runs on the
+     * NEXT event-loop turn if signalInEdit / re-mount did not cancel it first. No-op if
+     * nothing is mounted.
+     */
+    static void unmountPropertyManager();
+
 private:
     /// Stable objectName of the real QToolBar that wraps the ribbon.
     static const char* ribbonToolBarObjectName();
@@ -103,6 +143,17 @@ private:
     /// fastsignals connections are released on teardown (no signal fires into a
     /// torn-down ribbon — REVIEW MEDIUM).
     static std::unique_ptr<FwRibbonContext> s_ribbonContext;
+
+    // --- PropertyManager reveal + deferred-cancellable teardown (PROP-01) -----
+    /// The single reveal/teardown consumer for the left-docked "Tasks"
+    /// PropertyManager. Owned SEPARATELY from s_ribbonContext (which is reset on the
+    /// transient deactivated() at unmountRibbon()) so it SURVIVES the edit-time
+    /// workbench switch (A4 cross-phase observation). It owns the signalInEdit /
+    /// signalResetEdit subscriptions AND the pending-teardown QTimer handle:
+    /// signalInEdit cancels the pending teardown and re-asserts the left placement;
+    /// unmountPropertyManager() only SCHEDULES a cancellable teardown through it. Reset
+    /// only on the deferred true exit (so subscriptions drop before teardown).
+    static std::unique_ptr<FwPropertyReveal> s_propertyReveal;
 
     // --- chrome snapshot (FreeWorks-scoped, reversible) ---------------------
     /// Toolbar names hidden by the last hideStockChrome(); restored verbatim.

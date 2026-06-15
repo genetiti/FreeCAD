@@ -60,6 +60,11 @@ void FwWorkbench::activated()
     // restore it exactly.
     StdWorkbench::activated();
     FwLayout::mountRibbon();
+    // Left-dock the managed "Tasks" PropertyManager dock (PROP-01) AFTER the ribbon so
+    // the command surface exists first. Idempotent + two-branch placement (R2-F1); also
+    // (re)binds the survivable reveal/teardown consumer and cancels any pending teardown
+    // a prior transient deactivated() scheduled (the A4 deferred-cancellable policy).
+    FwLayout::mountPropertyManager();
     FwLayout::hideStockChrome();
 }
 
@@ -69,6 +74,13 @@ void FwWorkbench::deactivated()
     // the snapshotted menu bar + toolbars, then remove the ribbon wrapper.
     FwLayout::restoreStockChrome();
     FwLayout::unmountRibbon();
+    // unmountPropertyManager() does NOT tear down inline — it SCHEDULES a cancellable
+    // QTimer::singleShot(0) teardown (the A4 deferred-cancellable policy). An edit-time
+    // WB switch fires this deactivated() mid-edit BEFORE signalInEdit arms anything
+    // (R3-ROOT/R4-BLOCKER), so tearing down here would move the "Tasks" dock back right
+    // (R2-F2) and strip the chrome; the scheduled teardown is cancelled by signalInEdit /
+    // re-activation within the same event-loop turn, so the chrome + placement survive.
+    FwLayout::unmountPropertyManager();
 
     StdWorkbench::deactivated();
 }
@@ -114,9 +126,12 @@ Gui::DockWindowItems* FwWorkbench::setupDockWindows() const
     root->addDockWidget("Fw_FeatureManager",
                         Qt::LeftDockWidgetArea,
                         Gui::DockWindowOption::Visible);
-    root->addDockWidget("Fw_PropertyManager",
-                        Qt::LeftDockWidgetArea,
-                        Gui::DockWindowOption::Visible);
+    // Fw_PropertyManager is DELIBERATELY NOT contributed (Plan 04-02, R3-MAJOR3
+    // disposition (i)): the left PropertyManager slot is the re-hosted "Tasks" TaskView
+    // that FwLayout::mountPropertyManager() docks left in activated() (D-03
+    // reuse-and-rehost). Contributing a Fw_PropertyManager placeholder would make
+    // DockWindowManager::setup() create a SECOND live left dock that the mount would then
+    // have to async-remove (stale surface). Not creating it is the clean fix.
     root->addDockWidget("Fw_TaskPane",
                         Qt::RightDockWidgetArea,
                         Gui::DockWindowOption::VisibleTabbed);
