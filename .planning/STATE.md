@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 04 UI-SPEC approved
-last_updated: "2026-06-14T20:03:02.758Z"
-last_activity: "2026-06-14 -- Phase 03 verified + transitioned complete; next: plan Phase 04 (PropertyManager)"
+status: executing
+stopped_at: Phase 04 Plan 01 complete (D-03 spike approved — reuse-and-rehost)
+last_updated: "2026-06-15T02:03:23.307Z"
+last_activity: 2026-06-15 -- Phase 04 Plan 01 complete (Wave 0 scaffold + D-03 spike approved)
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 43
+  total_plans: 15
+  completed_plans: 12
+  percent: 46
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 4 of 7 (propertymanager-panel) — context gathered (04-CONTEXT.md + 04-DISCUSSION-LOG.md), ready to PLAN. Phase 3 COMPLETE (verified + transitioned).
-Plan: none yet for Phase 04; Phase 03 closed at 3/3 (03-01 → 03-02 → 03-03).
-Status: Phase 03 verified — 03-VERIFICATION.md records code-completion PASSED (4/4 goal truths verified against actual src/Gui/FreeWorks source: real FwFeatureTree mount, PartDesign_MoveTip-driven rollback bar under RAII FwSelectionGuard, Tip-driven greying, DnD/F2/plane-remap, 17 headless tests CMake-wired, leak-grep clean). status=human_needed only for 5 environmentally-blocked live items (3D suppress-below FEEL, forbidden-cursor DnD, plane A1 orientation, SC5 daily-SW parity, run-ctest-on-build) — all deferred to SPIKE_LIVE_CHECKLIST.md + parity-user track, gating milestone sign-off not phase code completion. Consistent with Phase 1 & 2 precedent.
-Last activity: 2026-06-14 -- Phase 03 verified + transitioned complete; next: plan Phase 04 (PropertyManager)
+Phase: 04 (propertymanager-panel) — EXECUTING
+Plan: 2 of 4 (next)
+Status: Executing Phase 04 (Plan 01 complete)
+Last activity: 2026-06-15 -- Phase 04 Plan 01 complete (Wave 0 scaffold + D-03 spike approved)
 
-Progress: [████░░░░░░] 3 of 7 phases complete; Phase 4 context ready, planning next (~43%)
+Progress: [████░░░░░░] 3 of 7 phases complete; Phase 4 Plan 01/04 done — D-03 engine committed (~46%)
 
 ## Performance Metrics
 
@@ -108,6 +108,11 @@ Recent decisions affecting current work:
 - [Phase 03]: [03-03]: FwSelectionGuard restores BOTH the global selection AND the preselection — both clearSelection and addSelection default clearPreSelect=true (Selection.h:360/385), so the replay passes clearPreSelect=false and the preselection is re-asserted explicitly via setPreselect (live) / rmvPreselect (none); getCompleteSelection() + getPreselection() both round-trip (reviewer HIGH-B)
 - [Phase 03]: [03-03]: Bar→solid-feature snap is a PURE LINK-FREE resolver (read Group via getPropertyByName('Group') as App::PropertyLinkList; classify solidness by getTypeId().getName() type-name STRING, mirroring isSolidFeature semantics) — never the C++-only getPrevSolidFeature/isSolidFeature (reviewer concern 7); insert-at-bar reuses the Python-only Body.insertObject + explicit post-insert Tip policy (solid→becomes tip, non-solid→Tip unchanged)
 - [Phase 03]: [03-03]: Below-tip greying is the Gui-only kBelowTipRole driven live by Body.Tip (painted by the 03-02 delegate hook) — NEVER a Visibility write; the bar holds NO new persisted state, Body.Tip is the single source of truth (D-05/D-06, Pitfall 3). Live FEEL items (3D suppress-below, drag/grab, fire-no-link + selection/preselection restore on hardware, SC5, A1) routed to SPIKE_LIVE_CHECKLIST.md
+- [Phase 04]: [04-01]: D-03 verdict APPROVED — `reuse-and-rehost committed`: re-host the existing Tasks TaskView in the LEFT PropertyManager slot is the committed engine for 04-02/04-03/04-04; NO from-scratch task system, NO Control.cpp/TaskView.cpp body edits
+- [Phase 04]: [04-01]: A1 two-branch left-placement — addDockWindow CANNOT move an already-docked panel (DockWindowManager.cpp:256-258, R2-F1); resolve host from Control().taskPanel() walk-up, branch on dockWidgetArea: re-dock-existing-left via getMainWindow()->addDockWidget(Left, dock) | create-left via addDockWindow when never-docked; getDockWindow('Tasks') is parent-independent; managed identity 'Tasks' (R2-F3)
+- [Phase 04]: [04-01]: A2 dock-stays-left — the 'Tasks' dock is NOT moved right synchronously on deactivated(); the activeDialog() guard AND a pre-checked edit-in-progress flag are BOTH too late under the deactivated-before-activated-before-signalInEdit ordering (R2-F2/R4-BLOCKER)
+- [Phase 04]: [04-01]: A4 overlays-survive — deferred-cancellable teardown: deactivated() SCHEDULES a QTimer::singleShot(0) teardown cancelled by signalInEdit / re-activation within the same synchronous activateWorkbench turn, so chrome + BOTH FLOW-01 halves (selection AND Features-tab-ready) survive the edit-time WB switch; Phase 2-3 ribbon shares the same synchronous-teardown pattern (cross-phase observation, NOT patched here)
+- [Phase 04]: [04-01]: A3 active-box — focus-inference-first by DEFAULT (no shared-file edit) validated against the real TaskPatternParameters 2-field panel; gated // SW-FORK HOOK accessor on TaskPatternParameters.{h,cpp} only if focus inference proven insufficient (R6-MAJOR2); pink via QPalette::Midlight role populated by a now-functional FwTheme::apply() (R2-F6); spike gate cleared by documentation approval (Phase 1-3 precedent), live observations deferred to SPIKE_LIVE_CHECKLIST.md (§ Phase 4)
 
 ### Pending Todos
 
@@ -132,6 +137,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T18:11:24.608Z
-Stopped at: Phase 04 UI-SPEC approved
-Resume file: .planning/phases/04-propertymanager-panel/04-UI-SPEC.md
+Last session: 2026-06-15
+Stopped at: Phase 04 Plan 01 complete (D-03 spike approved — reuse-and-rehost); next Plan 04-02
+Resume file: .planning/phases/04-propertymanager-panel/04-02-PLAN.md

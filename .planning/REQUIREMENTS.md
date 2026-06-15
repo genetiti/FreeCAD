@@ -104,10 +104,10 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | TREE-01 | Phase 3 | Complete |
 | TREE-02 | Phase 3 | Complete |
 | TREE-04 | Phase 3 | Complete |
-| PROP-01 | Phase 4 | Pending |
-| PROP-02 | Phase 4 | Pending |
-| TREE-03 | Phase 4 | Pending |
-| FLOW-01 | Phase 4 | Pending |
+| PROP-01 | Phase 4 | In Progress (04-01 Wave-0 logic + D-03 engine) |
+| PROP-02 | Phase 4 | In Progress (04-01 Wave-0 logic + D-03 engine) |
+| TREE-03 | Phase 4 | In Progress (04-01 Wave-0 logic + D-03 engine) |
+| FLOW-01 | Phase 4 | In Progress (04-01 Wave-0 logic + D-03 engine) |
 | NAV-02 | Phase 5 | Pending |
 | NAV-03 | Phase 5 | Pending |
 | NAV-04 | Phase 5 | Pending |
