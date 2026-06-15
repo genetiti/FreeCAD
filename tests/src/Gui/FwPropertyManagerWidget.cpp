@@ -20,13 +20,17 @@
 // area for BOTH the never-docked and came-from-right-dock cases.
 
 #include <QApplication>
+#include <QDockWidget>
 #include <QTest>
 #include <QWidget>
 
 #include <Gui/Application.h>
+#include <Gui/Control.h>
 #include <Gui/DockWindowManager.h>
 #include <Gui/MainWindow.h>
 #include <Gui/TaskView/TaskView.h>
+
+#include <src/Gui/FreeWorks/FwLayout.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -44,6 +48,15 @@ Gui::MainWindow* ensureRealMainWindow()
         new Gui::MainWindow();  // sets MainWindow::instance = this
     }
     return Gui::getMainWindow();
+}
+
+// Walk up from the registered/hosted Tasks TaskView to its parent QDockWidget. The
+// managed PropertyManager dock identity is the CONTAINER named "Tasks" (R2-F3); its
+// area is what mountPropertyManager() must drive to Qt::LeftDockWidgetArea.
+QDockWidget* tasksParentDock()
+{
+    Gui::TaskView::TaskView* tv = Gui::Control().taskPanel();
+    return tv != nullptr ? qobject_cast<QDockWidget*>(tv->parentWidget()) : nullptr;
 }
 }  // namespace
 
@@ -114,6 +127,136 @@ private Q_SLOTS:
         auto* taskView = qobject_cast<Gui::TaskView::TaskView*>(registered);
         QVERIFY2(taskView != nullptr, "the registered Std_TaskView widget must be a TaskView");
         QCOMPARE(taskView->objectName(), QStringLiteral("Tasks"));
+    }
+
+    // --- Plan 04-02: FwLayout::mountPropertyManager() left placement -----------
+
+    // Never-docked case (FreeWorks mode, F1): with no live "Tasks" dock yet,
+    // mountPropertyManager() resolves the registered Std_TaskView widget and CREATES
+    // the dock left via addDockWindow("Tasks", taskView, Left). After the mount
+    // Control().taskPanel() is non-null and its parent QDockWidget is in the LEFT area
+    // (R2-F1 create-left branch), and NO Fw_PropertyManager dock remains (R3-MAJOR3).
+    void test_mount_neverDocked_createsLeft()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();  // register the Tasks TaskView for the lookup
+
+        FreeWorksGui::FwLayout::mountPropertyManager();
+
+        QVERIFY2(Gui::Control().taskPanel() != nullptr,
+                 "after mount Control().taskPanel() must resolve the hosted Tasks panel");
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY2(dock != nullptr, "the hosted Tasks panel must live in a QDockWidget after mount");
+        QCOMPARE(mw->dockWidgetArea(dock), Qt::LeftDockWidgetArea);
+        QCOMPARE(dock->objectName(), QStringLiteral("Tasks"));
+
+        // R3-MAJOR3: no stale/second left surface from the placeholder.
+        QVERIFY2(Gui::DockWindowManager::instance()->getDockWindow("Fw_PropertyManager") == nullptr,
+                 "no Fw_PropertyManager dock may remain after mount (single left surface)");
+    }
+
+    // Came-from-right-dock case (R2-F1): pre-dock the Tasks widget on the RIGHT (as the
+    // stock Std_TaskView does, Workbench.cpp:925), then mountPropertyManager() must
+    // RE-DOCK the EXISTING container LEFT via getMainWindow()->addDockWidget(Left, dock)
+    // — addDockWindow alone CANNOT move an already-docked panel
+    // (DockWindowManager.cpp:256-258).
+    void test_mount_cameFromRightDock_reDocksLeft()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+
+        // Ensure a live "Tasks" container exists docked RIGHT (simulate Std_TaskView).
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY(dock != nullptr);
+        mw->addDockWidget(Qt::RightDockWidgetArea, dock);
+        QCOMPARE(mw->dockWidgetArea(dock), Qt::RightDockWidgetArea);
+
+        // Re-mount: must re-dock the EXISTING container left, preserving identity.
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QDockWidget* afterDock = tasksParentDock();
+        QVERIFY(afterDock != nullptr);
+        QCOMPARE(mw->dockWidgetArea(afterDock), Qt::LeftDockWidgetArea);
+        QCOMPARE(afterDock->objectName(), QStringLiteral("Tasks"));
+        QVERIFY2(Gui::Control().taskPanel() != nullptr,
+                 "taskPanel() must keep resolving after the re-dock (parent-independent)");
+    }
+
+    // saveState/restoreState round-trips with the "Tasks" container objectName + the
+    // "Tasks" inner-widget objectName preserved (the managed dock identity — R2-F3).
+    void test_mount_saveStateRoundTrips_onTasksIdentity()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY(dock != nullptr);
+        QCOMPARE(dock->objectName(), QStringLiteral("Tasks"));
+        QCOMPARE(dock->widget()->objectName(), QStringLiteral("Tasks"));
+
+        const QByteArray state = mw->saveState();
+        QVERIFY2(mw->restoreState(state),
+                 "saveState/restoreState must round-trip on the 'Tasks' identity");
+
+        QDockWidget* afterDock = tasksParentDock();
+        QVERIFY(afterDock != nullptr);
+        QCOMPARE(afterDock->objectName(), QStringLiteral("Tasks"));
+    }
+
+    // R4-BLOCKER survival in the REAL transient order: unmountPropertyManager() FIRST
+    // (it SCHEDULES the cancellable teardown), THEN signalInEdit CANCELS it, THEN drain
+    // the event loop — the dock stays left and is not torn down (R3-BLOCKER2 closed).
+    void test_deferredTeardown_cancelledBySignalInEdit_dockSurvives()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QVERIFY(tasksParentDock() != nullptr);
+
+        // The transient edit-time deactivated(): schedules, does not tear down inline.
+        FreeWorksGui::FwLayout::unmountPropertyManager();
+        // signalInEdit arrives within the same turn and cancels the pending teardown by
+        // re-mounting (the consumer cancels + re-asserts the left placement).
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        // Drain the queued singleShot(0): the cancel must have beaten it.
+        QTest::qWait(0);
+        qApp->processEvents();
+
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY2(dock != nullptr,
+                 "the Tasks dock must SURVIVE the transient deactivated()/re-mount (R3-ROOT)");
+        QCOMPARE(mw->dockWidgetArea(dock), Qt::LeftDockWidgetArea);
+    }
+
+    // Genuine-exit case: unmountPropertyManager() with NO re-mount/signalInEdit, then
+    // drain — the deferred teardown RUNS (the consumer's subscriptions drop). The dock
+    // staying left is harmless under stock workbenches; we assert the teardown executed
+    // by re-mount idempotency holding afterwards.
+    void test_deferredTeardown_genuineExit_runs()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QVERIFY(tasksParentDock() != nullptr);
+
+        FreeWorksGui::FwLayout::unmountPropertyManager();
+        QTest::qWait(0);
+        qApp->processEvents();
+
+        // After the teardown ran, a fresh mount still resolves the host idempotently
+        // (no stale/duplicate surface left behind).
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY2(dock != nullptr, "a fresh mount after a genuine-exit teardown must resolve");
+        QCOMPARE(mw->dockWidgetArea(dock), Qt::LeftDockWidgetArea);
+        QVERIFY2(Gui::DockWindowManager::instance()->getDockWindow("Fw_PropertyManager") == nullptr,
+                 "no Fw_PropertyManager dock may remain after a re-mount");
     }
 };
 
