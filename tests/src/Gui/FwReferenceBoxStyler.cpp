@@ -32,11 +32,16 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <vector>
 
 #include <QColor>
 #include <QPalette>
+#include <QWidget>
+
+#include <src/Gui/FreeWorks/FwReferenceBoxStyler.h>
+#include <src/Gui/FreeWorks/FwTheme.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -219,4 +224,88 @@ TEST_F(FwReferenceBoxStylerTest, filledAndInactiveTonesUsePaletteRoles)
     // The filled (Highlight) and inactive (Disabled/Text) tones are derived from
     // distinct roles — they are not the same hardcoded color.
     EXPECT_NE(filled, inactiveCaption);
+}
+
+// =====================================================================================
+// Plan 04-03 Task 1 — the REAL FwReferenceBoxStyler (R2-F6 / PROP-02 / D-06).
+//
+// These cases drive the production FreeWorksGui::FwReferenceBoxStyler against real
+// QWidgets (the offscreen QApplication from ensureGuiTestBootstrap() makes QWidget
+// construction legal in this GTest target). They prove the state machine and the
+// palette-role read against the actual class — not just the model above.
+// =====================================================================================
+
+// The production carrier role the A3 spike named (QPalette::Midlight) — the styler reads
+// the active tone off this role, populated by FwTheme::apply(). We assert against the SAME
+// role the production code uses, exposed as FwReferenceBoxStyler::activeToneRole().
+TEST_F(FwReferenceBoxStylerTest, productionStyler_exactlyOneBoxActiveAtATime)
+{
+    auto boxA = std::make_unique<QWidget>();
+    auto boxB = std::make_unique<QWidget>();
+    FreeWorksGui::FwReferenceBoxStyler styler;
+
+    EXPECT_EQ(nullptr, styler.activeBox());
+
+    styler.activate(boxA.get());
+    EXPECT_EQ(boxA.get(), styler.activeBox());
+
+    // Activating box B must deactivate box A (exactly one active — Pitfall 6).
+    styler.activate(boxB.get());
+    EXPECT_EQ(boxB.get(), styler.activeBox());
+}
+
+// Deactivate reverts to no-active AND restores the previously-active box's prior palette
+// (reversible restyle — the styler holds no persisted state).
+TEST_F(FwReferenceBoxStylerTest, productionStyler_deactivateRestoresPriorPalette)
+{
+    auto box = std::make_unique<QWidget>();
+    const QPalette before = box->palette();
+
+    FreeWorksGui::FwReferenceBoxStyler styler;
+    styler.activate(box.get());
+    EXPECT_EQ(box.get(), styler.activeBox());
+    // While active, FwTheme::apply() has populated the carrier role with the pink VALUE.
+    const QColor activeTone =
+        box->palette().color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole());
+    EXPECT_TRUE(activeTone.isValid());
+
+    styler.deactivate();
+    EXPECT_EQ(nullptr, styler.activeBox());
+    // The prior palette is restored exactly (reversible).
+    EXPECT_EQ(before.color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole()),
+              box->palette().color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole()));
+}
+
+// R2-F6: the active tone is the FwTheme-populated carrier role read off the box widget's
+// LOCAL palette — and it is a pink, NEVER the reserved blue/link role (D-06).
+TEST_F(FwReferenceBoxStylerTest, productionStyler_activeToneIsPinkNeverBlue)
+{
+    auto box = std::make_unique<QWidget>();
+    FreeWorksGui::FwReferenceBoxStyler styler;
+    styler.activate(box.get());
+
+    const QColor tone =
+        box->palette().color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole());
+    QPalette systemPalette;
+    EXPECT_NE(systemPalette.color(QPalette::Link), tone)
+        << "the active tone must not be the reserved blue (D-06)";
+    EXPECT_GT(tone.red(), tone.blue()) << "the active tone must read as pink, not blue";
+}
+
+// FwTheme::apply() is now FUNCTIONAL (R2-F6): given a box widget, it installs the single
+// FreeWorks-owned pink VALUE into the carrier role on the box's LOCAL palette. The styler
+// reads it back via widget->palette().color(role) — proving "via a QPalette role".
+TEST_F(FwReferenceBoxStylerTest, fwThemeApply_populatesTheCarrierRoleWithPink)
+{
+    auto box = std::make_unique<QWidget>();
+    const QColor beforeTone =
+        box->palette().color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole());
+
+    FreeWorksGui::FwTheme::applyActiveReferenceBoxTone(box.get());
+
+    const QColor afterTone =
+        box->palette().color(FreeWorksGui::FwReferenceBoxStyler::activeToneRole());
+    EXPECT_TRUE(afterTone.isValid());
+    EXPECT_NE(beforeTone, afterTone) << "apply() must populate the carrier role with pink";
+    EXPECT_GT(afterTone.red(), afterTone.blue()) << "the populated tone must be a pink";
 }

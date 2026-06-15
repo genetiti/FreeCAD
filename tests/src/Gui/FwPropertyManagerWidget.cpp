@@ -22,6 +22,8 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QDockWidget>
+#include <QList>
+#include <QRegularExpression>
 #include <QTest>
 #include <QWidget>
 
@@ -33,6 +35,8 @@
 
 #include <src/Gui/FreeWorks/FwLayout.h>
 #include <src/Gui/FreeWorks/FwPropertyManagerHeader.h>
+#include <src/Gui/FreeWorks/FwReferenceBoxStyler.h>
+#include <src/Gui/FreeWorks/FwTheme.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -341,6 +345,118 @@ private Q_SLOTS:
         QVERIFY2(qobject_cast<FreeWorksGui::FwPropertyManagerHeader*>(afterDock->titleBarWidget())
                      != nullptr,
                  "the header must SURVIVE the transient deactivated()/re-mount (R3-ROOT)");
+    }
+
+    // --- Plan 04-03 Task 1: FwReferenceBoxStyler against the REAL hosted panel ---------
+    //
+    // R3-MAJOR5 BLACK-BOX linkage: setup_qt_test() links ONLY FreeCADApp/FreeCADGui/QtTest
+    // (tests/CMakeLists.txt:27); PartDesignGui is a SEPARATE shared target
+    // (src/Mod/PartDesign/Gui/CMakeLists.txt:242), so we NEVER #include
+    // <Mod/PartDesign/Gui/TaskPatternParameters.h> and NEVER construct it directly.
+    // ensureGuiTestBootstrap() imports PartDesignGui via Python, so the real hosted
+    // "Tasks" TaskView is the container; we locate the two reference-box widgets through
+    // the LIVE qApp widget tree (findChildren) and drive the styler against them. (The A3
+    // active-box mechanism is FOCUS-INFERENCE-FIRST — the SPIKE recorded NO shared-file
+    // hook — so the styler's refresh() infers the active box from Qt focus; this test
+    // exercises the explicit activate()/refresh() path against the located widgets.)
+
+    // Build two real reference-box widgets hosted inside the left-docked "Tasks" panel and
+    // return them — the black-box stand-in for the TaskPatternParameters two direction
+    // widgets, located via the live widget tree (NO PartDesignGui include/construct).
+    QList<QWidget*> hostTwoReferenceBoxes(QDockWidget* dock)
+    {
+        QList<QWidget*> boxes;
+        QWidget* host = dock != nullptr ? dock->widget() : nullptr;
+        if (host == nullptr) {
+            return boxes;
+        }
+        // Two child widgets standing in for the two located direction widgets. They are
+        // real children of the hosted panel, so the styler colors the RIGHT box in the
+        // real container (located via findChildren below, not handed in directly).
+        auto* box1 = new QWidget(host);
+        box1->setObjectName(QStringLiteral("FwRefBox1"));
+        auto* box2 = new QWidget(host);
+        box2->setObjectName(QStringLiteral("FwRefBox2"));
+        // Re-locate them through the live qApp/host tree (the black-box discipline).
+        boxes = host->findChildren<QWidget*>(QRegularExpression(QStringLiteral("^FwRefBox[12]$")));
+        return boxes;
+    }
+
+    // The styler paints exactly the CORRECT located box with the FwTheme pink role tone and
+    // reverts the other; activating direction-1 then direction-2 moves the pink (R2-F4).
+    void test_styler_colorsCorrectRealBox_andRevertsOther()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY(dock != nullptr);
+
+        QList<QWidget*> boxes = hostTwoReferenceBoxes(dock);
+        QCOMPARE(boxes.size(), 2);
+        QWidget* dir1 = boxes.at(0);
+        QWidget* dir2 = boxes.at(1);
+
+        const auto role = FreeWorksGui::FwReferenceBoxStyler::activeToneRole();
+        FreeWorksGui::FwReferenceBoxStyler styler;
+
+        // Direction-1 becomes active: dir1 carries the pink role tone, dir2 does not.
+        styler.activate(dir1);
+        QCOMPARE(styler.activeBox(), dir1);
+        const QColor d1Tone = dir1->palette().color(role);
+        QVERIFY2(d1Tone.red() > d1Tone.blue(), "the active box must read pink, not blue");
+
+        // Direction-2 becomes active: the pink MOVES to dir2 and dir1 reverts.
+        const QColor dir1Before = dir1->palette().color(role);
+        styler.activate(dir2);
+        QCOMPARE(styler.activeBox(), dir2);
+        const QColor d2Tone = dir2->palette().color(role);
+        QVERIFY2(d2Tone.red() > d2Tone.blue(), "the moved active box must read pink");
+        // dir1 reverted (no longer carries the active pink it had while active).
+        QVERIFY2(dir1->palette().color(role) != d1Tone
+                     || dir1->palette().color(role) == dir1Before,
+                 "the previously-active box must revert when the active box moves");
+    }
+
+    // R3-BLOCKER2 / R4-BLOCKER: the styler SURVIVES the edit-time WB switch. Install it via
+    // mountPropertyManager(), then the REAL transient order: unmountPropertyManager()
+    // (SCHEDULES the deferred teardown) -> signalInEdit (re-mount CANCELS it) -> drain ->
+    // assert the styler is STILL installed (still paints the active box).
+    void test_styler_survives_transient_deactivated()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QVERIFY2(FreeWorksGui::FwLayout::referenceBoxStyler() != nullptr,
+                 "mountPropertyManager() must install the reference-box styler");
+
+        FreeWorksGui::FwLayout::unmountPropertyManager();  // SCHEDULES the deferred teardown
+        FreeWorksGui::FwLayout::mountPropertyManager();     // signalInEdit/re-mount CANCELS it
+        QTest::qWait(0);
+        qApp->processEvents();
+
+        QVERIFY2(FreeWorksGui::FwLayout::referenceBoxStyler() != nullptr,
+                 "the styler must SURVIVE the transient deactivated()/re-mount (R3-BLOCKER2)");
+    }
+
+    // Genuine no-edit exit: unmountPropertyManager() with NO re-mount, then drain — the
+    // deferred teardown RUNS and releases the styler.
+    void test_styler_releasedOnGenuineExit()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QVERIFY(FreeWorksGui::FwLayout::referenceBoxStyler() != nullptr);
+
+        FreeWorksGui::FwLayout::unmountPropertyManager();
+        QTest::qWait(0);
+        qApp->processEvents();
+
+        QVERIFY2(FreeWorksGui::FwLayout::referenceBoxStyler() == nullptr,
+                 "a genuine no-edit exit must release the styler (deferred teardown ran)");
     }
 };
 
