@@ -45,6 +45,7 @@
 
 #include "FwFeatureTree.h"
 #include "FwLayout.h"
+#include "FwPropertyManagerHeader.h"
 #include "FwPropertyReveal.h"
 #include "FwRibbon.h"
 #include "FwRibbonContext.h"
@@ -463,6 +464,27 @@ void removeStalePropertyManagerDock()
 
 }  // namespace
 
+namespace
+{
+/// Attach the FwPropertyManagerHeader to @p dock as its title-bar band (container-level,
+/// WITHOUT reparenting the inner TaskView — D-01/D-02). Idempotent: if a header is
+/// already installed, leave it (re-mount must not stack a second band). The header is
+/// chrome that must SURVIVE the edit-time WB switch, so it is owned by the dock and only
+/// removed when the dock itself is torn down (never on the transient deactivated()).
+void attachPropertyManagerHeader(QDockWidget* dock)
+{
+    if (dock == nullptr) {
+        return;
+    }
+    if (qobject_cast<FreeWorksGui::FwPropertyManagerHeader*>(dock->titleBarWidget()) != nullptr) {
+        return;  // already installed — idempotent
+    }
+    auto* header = new FreeWorksGui::FwPropertyManagerHeader(dock);
+    header->setTitle(dock->windowTitle());
+    dock->setTitleBarWidget(header);  // dock takes ownership of the title-bar widget
+}
+}  // namespace
+
 void FwLayout::mountPropertyManager()
 {
     // Reachability guard: no-op until the live shell exists.
@@ -471,7 +493,11 @@ void FwLayout::mountPropertyManager()
     }
 
     // Place the managed "Tasks" PropertyManager dock left (idempotent, two-branch — R2-F1).
-    placeTasksDockLeft();
+    QDockWidget* dock = placeTasksDockLeft();
+
+    // Attach the green-✓/red-✗ header band at the container level (idempotent; the inner
+    // TaskView is never reparented). The header drives the existing Control accept/reject.
+    attachPropertyManagerHeader(dock);
 
     // R3-MAJOR3: ensure no stale Fw_PropertyManager dock pollutes the single left surface.
     removeStalePropertyManagerDock();

@@ -23,7 +23,6 @@
 #include <QApplication>
 #include <QDockWidget>
 #include <QTest>
-#include <QToolTip>
 #include <QWidget>
 
 #include <Gui/Application.h>

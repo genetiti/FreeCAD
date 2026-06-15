@@ -28,6 +28,7 @@ set(FreeWorks_CPP_SRCS
     FwSelectionGuard.cpp
     FwRollbackBar.cpp
     FwPropertyReveal.cpp
+    FwPropertyManagerHeader.cpp
 )
 
 set(FreeWorks_HPP_SRCS
@@ -44,6 +45,7 @@ set(FreeWorks_HPP_SRCS
     FwSelectionGuard.h
     FwRollbackBar.h
     FwPropertyReveal.h
+    FwPropertyManagerHeader.h
 )
 
 set(FreeWorks_SRCS
