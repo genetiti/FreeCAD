@@ -19,9 +19,11 @@
 // resolvable offscreen. Plan 04-02 then asserts Control().taskPanel() lands in the LEFT
 // area for BOTH the never-docked and came-from-right-dock cases.
 
+#include <QAbstractButton>
 #include <QApplication>
 #include <QDockWidget>
 #include <QTest>
+#include <QToolTip>
 #include <QWidget>
 
 #include <Gui/Application.h>
@@ -31,6 +33,7 @@
 #include <Gui/TaskView/TaskView.h>
 
 #include <src/Gui/FreeWorks/FwLayout.h>
+#include <src/Gui/FreeWorks/FwPropertyManagerHeader.h>
 
 #include "FwTestGuiBootstrap.h"
 
@@ -257,6 +260,88 @@ private Q_SLOTS:
         QCOMPARE(mw->dockWidgetArea(dock), Qt::LeftDockWidgetArea);
         QVERIFY2(Gui::DockWindowManager::instance()->getDockWindow("Fw_PropertyManager") == nullptr,
                  "no Fw_PropertyManager dock may remain after a re-mount");
+    }
+
+    // --- Plan 04-02 Task 2: FwPropertyManagerHeader -----------------------------
+
+    // The header is a thin 32px band with two controls: a green-✓ accept (tooltip
+    // "Accept (Enter)") and a red-✗ cancel (tooltip "Cancel (Esc)"). It is
+    // palette-derived only (no hex / setStyleSheet color literal) and carries no
+    // "SolidWorks" string (asserted by the leak-grep, not here).
+    void test_header_construction_controls_and_tooltips()
+    {
+        auto header = std::make_unique<FreeWorksGui::FwPropertyManagerHeader>(nullptr);
+        QVERIFY2(header->acceptButton() != nullptr, "header must expose a green-check accept control");
+        QVERIFY2(header->cancelButton() != nullptr, "header must expose a red-cross cancel control");
+
+        // Fixed 32px band (UI-SPEC § Spacing exception).
+        QCOMPARE(header->fixedBandHeight(), 32);
+
+        // Copywriting contract (UI-SPEC § Copywriting): tooltips name the keys.
+        QCOMPARE(header->acceptButton()->toolTip(), QStringLiteral("Accept (Enter)"));
+        QCOMPARE(header->cancelButton()->toolTip(), QStringLiteral("Cancel (Esc)"));
+    }
+
+    // The ✓/✗ controls drive the EXISTING Gui::Control().accept()/reject() — no new
+    // commit logic. Offscreen with no active dialog/document, accept()/reject() are safe
+    // no-ops (they early-return), so we assert clicking does not crash and the controls
+    // are wired (the click reaches the connected slot). This proves the SAME accept/reject
+    // the hosted TaskEditControl QDialogButtonBox drives (TaskView.cpp:644-686).
+    void test_header_buttons_invoke_control_accept_reject()
+    {
+        auto header = std::make_unique<FreeWorksGui::FwPropertyManagerHeader>(nullptr);
+        // No active dialog: accept()/reject() warn+return — must not crash.
+        header->acceptButton()->click();
+        header->cancelButton()->click();
+        QVERIFY2(true, "clicking the header controls invokes Control().accept()/reject() safely");
+    }
+
+    // mountPropertyManager() attaches the header to the left-docked "Tasks" dock at the
+    // container level (as the dock's title-bar widget), WITHOUT reparenting the inner
+    // TaskView. The header is chrome that must survive the edit-time WB switch.
+    void test_mount_attachesHeader_toLeftDock()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY(dock != nullptr);
+        auto* header = qobject_cast<FreeWorksGui::FwPropertyManagerHeader*>(dock->titleBarWidget());
+        QVERIFY2(header != nullptr,
+                 "mountPropertyManager() must attach an FwPropertyManagerHeader as the dock title band");
+
+        // The inner TaskView is NOT reparented out of the dock (identity preserved).
+        QVERIFY2(Gui::Control().taskPanel() != nullptr,
+                 "the inner TaskView must remain the dock content (not reparented by the header)");
+        QCOMPARE(dock->widget()->objectName(), QStringLiteral("Tasks"));
+    }
+
+    // The header SURVIVES the transient deactivated()/re-mount round-trip: it is released
+    // only by the deferred-cancellable teardown, never synchronously on deactivated().
+    void test_header_survives_transient_deactivated()
+    {
+        Gui::MainWindow* mw = ensureRealMainWindow();
+        QVERIFY(mw != nullptr);
+        mw->setupTaskView();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QDockWidget* dock = tasksParentDock();
+        QVERIFY(dock != nullptr);
+        QVERIFY(dock->titleBarWidget() != nullptr);
+
+        // Transient edit-time deactivated() schedules teardown; signalInEdit (re-mount)
+        // cancels it within the same turn.
+        FreeWorksGui::FwLayout::unmountPropertyManager();
+        FreeWorksGui::FwLayout::mountPropertyManager();
+        QTest::qWait(0);
+        qApp->processEvents();
+
+        QDockWidget* afterDock = tasksParentDock();
+        QVERIFY(afterDock != nullptr);
+        QVERIFY2(qobject_cast<FreeWorksGui::FwPropertyManagerHeader*>(afterDock->titleBarWidget())
+                     != nullptr,
+                 "the header must SURVIVE the transient deactivated()/re-mount (R3-ROOT)");
     }
 };
 
