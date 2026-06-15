@@ -368,6 +368,10 @@ final escalation and must be flagged for developer approval. (The A3 active-fiel
   escalation; pink via QPalette::Midlight role` — PASS.
 - **Approval mode:** documentation approval (user-authorized), Phase 1-3 precedent
   `[01-03]`/`[01-04]`/`[02-01]`; no build tree / GUI / CI in this environment.
+- **Gate status:** APPROVED 2026-06-15 — resume signal `approved: reuse-and-rehost`
+  received. The `reuse-and-rehost` engine is the COMMITTED basis for Plans
+  04-02/04-03/04-04 (deferred-cancellable survivable-lifecycle policy +
+  focus-inference-first active-box branch, pink via `QPalette::Midlight`).
 - **Live verification record:** `src/Gui/FreeWorks/SPIKE_LIVE_CHECKLIST.md` (`## Phase 4`,
   open).
 - **Resume signal:** `approved: reuse-and-rehost` → Plans 04-02/04-03/04-04 build on the
